@@ -26,6 +26,7 @@ public class AuthController : ControllerBase
             return Created($"/api/users/{id}", new { userId = id, email = req.Email });
         }
         catch (InvalidOperationException) { return Conflict(new { error = "Email already registered" }); }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpPost("login")]

@@ -15,7 +15,8 @@ public class LoginHandler : IRequestHandler<LoginCommand, LoginResult>
 
     public async Task<LoginResult> Handle(LoginCommand cmd, CancellationToken ct)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == cmd.Email, ct)
+        var email = Credentials.NormalizeEmail(cmd.Email);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct)
             ?? throw new UnauthorizedAccessException("Invalid credentials");
         if (!BCrypt.Net.BCrypt.Verify(cmd.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid credentials");
