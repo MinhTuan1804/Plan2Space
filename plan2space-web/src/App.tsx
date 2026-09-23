@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AuthPage from './pages/AuthPage'
 import DashboardPage from './pages/DashboardPage'
+import StudioPage from './pages/StudioPage'
 import { RequireAuth } from './components/RequireAuth'
 
 export default function App() {
@@ -14,6 +15,14 @@ export default function App() {
           element={
             <RequireAuth>
               <DashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/studio/:projectId"
+          element={
+            <RequireAuth>
+              <StudioPage />
             </RequireAuth>
           }
         />
