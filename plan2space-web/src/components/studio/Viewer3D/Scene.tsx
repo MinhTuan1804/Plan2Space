@@ -2,9 +2,18 @@ import React, { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Center } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
-import { buildWallGeometry } from './buildWallGeometry'
-import { cutOpeningsIntoWall } from './cutOpenings'
-import { Box, Eye, Sun, Compass } from 'lucide-react'
+import { useWallGeometry } from './useWallGeometry'
+import { Wall, Opening } from '../../../services/geometryService'
+import { Eye } from 'lucide-react'
+
+function WallMesh({ wall, openings }: { wall: Wall; openings: Opening[] }) {
+  const geometry = useWallGeometry(wall, openings)
+  return (
+    <mesh geometry={geometry} castShadow receiveShadow>
+      <meshStandardMaterial color="#e4e4e7" roughness={0.4} metalness={0.05} />
+    </mesh>
+  )
+}
 
 export function Scene() {
   const walls = useGeometryStore((s) => s.walls)
@@ -65,19 +74,9 @@ export function Scene() {
 
         {/* Group with orientation converting 2D plan XY to 3D XZ */}
         <group rotation={[-Math.PI / 2, 0, 0]}>
-          {walls.map((wall) => {
-            const rawGeom = buildWallGeometry(wall)
-            const geom = cutOpeningsIntoWall(rawGeom, wall, openings)
-            return (
-              <mesh key={wall.id} geometry={geom} castShadow receiveShadow>
-                <meshStandardMaterial
-                  color="#e4e4e7"
-                  roughness={0.4}
-                  metalness={0.05}
-                />
-              </mesh>
-            )
-          })}
+          {walls.map((wall) => (
+            <WallMesh key={wall.id} wall={wall} openings={openings} />
+          ))}
         </group>
       </Canvas>
     </div>
