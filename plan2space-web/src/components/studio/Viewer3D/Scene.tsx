@@ -3,10 +3,12 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Center } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { buildWallGeometry } from './buildWallGeometry'
+import { cutOpeningsIntoWall } from './cutOpenings'
 import { Box, Eye, Sun, Compass } from 'lucide-react'
 
 export function Scene() {
   const walls = useGeometryStore((s) => s.walls)
+  const openings = useGeometryStore((s) => s.openings)
 
   return (
     <div className="w-full h-full relative bg-[#09090b]">
@@ -64,7 +66,8 @@ export function Scene() {
         {/* Group with orientation converting 2D plan XY to 3D XZ */}
         <group rotation={[-Math.PI / 2, 0, 0]}>
           {walls.map((wall) => {
-            const geom = buildWallGeometry(wall)
+            const rawGeom = buildWallGeometry(wall)
+            const geom = cutOpeningsIntoWall(rawGeom, wall, openings)
             return (
               <mesh key={wall.id} geometry={geom} castShadow receiveShadow>
                 <meshStandardMaterial
