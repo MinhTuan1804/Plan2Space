@@ -9,3 +9,4 @@ dist/
 *.user
 .vs/
 .venv/
+*.tsbuildinfo
