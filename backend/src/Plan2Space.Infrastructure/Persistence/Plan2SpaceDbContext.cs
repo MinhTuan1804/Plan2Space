@@ -23,6 +23,8 @@ public class Plan2SpaceDbContext : DbContext, IPlan2SpaceDbContext
 
         b.Entity<User>().HasIndex(u => u.Email).IsUnique();
 
+        b.Entity<Project>().Property(p => p.GeometryVersion).IsConcurrencyToken();
+
         b.Entity<Wall>().Property(w => w.Geometry).HasColumnType("geometry (LineString)");
         b.Entity<Wall>().Property(w => w.Version).IsConcurrencyToken();
 
