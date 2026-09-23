@@ -24,7 +24,17 @@ export function CopilotChat({ projectId }: { projectId: string }) {
     setBusy(true)
     setLog((l) => [...l, { from: 'you', text }])
     try {
-      const { data } = await apiClient.post('/copilot/message', { projectId, message: text })
+      // The co-pilot edits the saved plan: save local edits first, then send the version the user sees
+      // so a newer plan from another tab is a conflict instead of being edited blindly.
+      if (useGeometryStore.getState().dirty) {
+        await useGeometryStore.getState().saveToServer(projectId)
+        if (useGeometryStore.getState().saveConflict) {
+          setLog((l) => [...l, { from: 'copilot', text: 'Your plan has conflicting changes — reload it before asking the co-pilot.', failed: true }])
+          return
+        }
+      }
+      const baseVersion = useGeometryStore.getState().version
+      const { data } = await apiClient.post('/copilot/message', { projectId, message: text, baseVersion })
       setLog((l) => [...l, { from: 'copilot', text: data.message || data.action }])
       if (data.appliedVersion) await loadFromServer(projectId)
     } catch (err: any) {

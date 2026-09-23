@@ -5,10 +5,13 @@ import { CanvasEditor } from '../components/studio/Canvas2D/CanvasEditor'
 import { Scene } from '../components/studio/Viewer3D/Scene'
 import { StudioToolbar } from '../components/studio/StudioToolbar'
 import { CopilotChat } from '../components/studio/Copilot/CopilotChat'
+import { useUnsavedChangesWarning } from '../hooks/useUnsavedChangesWarning'
 
 export default function StudioPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const loadFromServer = useGeometryStore((s) => s.loadFromServer)
+  const dirty = useGeometryStore((s) => s.dirty)
+  useUnsavedChangesWarning(dirty)
 
   useEffect(() => {
     if (projectId) {

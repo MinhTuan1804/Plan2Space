@@ -18,7 +18,7 @@ public class CopilotController : ControllerBase
     public CopilotController(IMediator mediator) => _mediator = mediator;
     private Guid CurrentUserId => Guid.Parse(User.FindFirst("sub")!.Value);
 
-    public record MessageRequest(Guid ProjectId, string Message);
+    public record MessageRequest(Guid ProjectId, string Message, uint? BaseVersion = null);
 
     [HttpPost("message")]
     [EnableRateLimiting(RateLimitPolicies.AiTriggering)]
@@ -26,13 +26,13 @@ public class CopilotController : ControllerBase
     {
         try
         {
-            var result = await _mediator.Send(new InterpretCopilotMessageCommand(req.ProjectId, CurrentUserId, req.Message));
+            var result = await _mediator.Send(new InterpretCopilotMessageCommand(req.ProjectId, CurrentUserId, req.Message, req.BaseVersion));
             return Ok(new { action = result.Action, @params = result.Params, appliedVersion = result.AppliedVersion, message = result.Message });
         }
         catch (KeyNotFoundException) { return NotFound(); }
         catch (CopilotRejectedException ex) { return UnprocessableEntity(new { message = ex.Message }); }
         catch (CopilotUnavailableException ex) { return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message }); }
-        catch (GeometryConflictException) { return Conflict(new { message = "The plan changed while the co-pilot was working. Reload and try again." }); }
+        catch (GeometryConflictException) { return Conflict(new { message = "The plan changed since you loaded it. Reload and try again." }); }
         catch (RoomOverlapException ex) { return UnprocessableEntity(new { message = $"That edit would make rooms overlap. {ex.Message}" }); }
         catch (GeometryValidationException ex) { return UnprocessableEntity(new { message = ex.Message }); }
     }

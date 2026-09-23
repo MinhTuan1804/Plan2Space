@@ -6,7 +6,9 @@ using Plan2Space.Application.Geometry.Queries;
 namespace Plan2Space.Application.Copilot.Commands;
 
 public record CopilotResult(string Action, JsonElement Params, uint? AppliedVersion, string Message);
-public record InterpretCopilotMessageCommand(Guid ProjectId, Guid RequestingUserId, string Message) : IRequest<CopilotResult>;
+// BaseVersion: the plan version the user is looking at; when given, a newer server plan is a conflict (not silently edited).
+public record InterpretCopilotMessageCommand(Guid ProjectId, Guid RequestingUserId, string Message, uint? BaseVersion = null)
+    : IRequest<CopilotResult>;
 
 public class InterpretCopilotMessageHandler : IRequestHandler<InterpretCopilotMessageCommand, CopilotResult>
 {
@@ -25,6 +27,8 @@ public class InterpretCopilotMessageHandler : IRequestHandler<InterpretCopilotMe
     {
         var geometry = await _mediator.Send(new GetGeometryQuery(cmd.ProjectId, cmd.RequestingUserId), ct)
             ?? throw new KeyNotFoundException();
+        if (cmd.BaseVersion is uint seen && seen != geometry.Version)
+            throw new GeometryConflictException();
 
         var intent = await _intentClient.ParseIntentAsync(cmd.Message, geometry, ct);
 

@@ -95,6 +95,20 @@ public class CopilotControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
     }
 
     [Fact]
+    public async Task StaleClientVersion_Returns409AndChangesNothing()
+    {
+        // Final review I3: the co-pilot must not edit a plan newer than what the user is looking at.
+        var (client, projectId) = await ClientWithIntentAsync("copilot-stale@plan2space.dev",
+            g => Intent("move_wall", new { wall_id = g.Walls[0].Id.ToString(), dx = 1.0, dy = 0.0 }));
+        await SeedAsync(client, projectId);   // server is now at version 1
+
+        var response = await client.PostAsJsonAsync("/api/copilot/message", new { projectId, message = "move it", baseVersion = 0 });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(1u, (await GeometryAsync(client, projectId)).GetProperty("version").GetUInt32());
+    }
+
+    [Fact]
     public async Task AddOpening_PlacesItAlongTheWallAtTheRequestedOffset()
     {
         var (client, projectId) = await ClientWithIntentAsync("copilot-open@plan2space.dev",

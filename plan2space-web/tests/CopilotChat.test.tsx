@@ -24,7 +24,7 @@ describe('CopilotChat', () => {
     type('move the left wall 50cm right')
 
     await waitFor(() => expect(screen.getByText('Moved the wall by (0.5 m, 0 m).')).toBeInTheDocument())
-    expect(post).toHaveBeenCalledWith('/copilot/message', { projectId: 'p1', message: 'move the left wall 50cm right' })
+    expect(post).toHaveBeenCalledWith('/copilot/message', expect.objectContaining({ projectId: 'p1', message: 'move the left wall 50cm right' }))
     expect(screen.getByText('move the left wall 50cm right')).toBeInTheDocument()
     expect(loadFromServer).toHaveBeenCalledWith('p1')
   })

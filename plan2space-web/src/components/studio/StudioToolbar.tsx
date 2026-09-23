@@ -29,6 +29,8 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
   const version = useGeometryStore((s) => s.version)
   const walls = useGeometryStore((s) => s.walls)
   const openings = useGeometryStore((s) => s.openings)
+  const dirty = useGeometryStore((s) => s.dirty)
+  const draftDiscarded = useGeometryStore((s) => s.draftDiscarded)
 
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
@@ -42,6 +44,14 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
     setActionError(null)
     setExporting(format)
     try {
+      // The export is built from the saved plan, so save unsaved edits first: export what the user sees.
+      if (useGeometryStore.getState().dirty) {
+        await saveToServer(projectId)
+        if (useGeometryStore.getState().saveConflict) {
+          setActionError('Save your changes (reload to resolve the conflict) before exporting.')
+          return
+        }
+      }
       await downloadExport(projectId, format)
     } catch (err: any) {
       setActionError(err?.message || 'Export failed')
@@ -55,6 +65,11 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
+    const current = useGeometryStore.getState()
+    if ((current.walls.length > 0 || current.dirty) &&
+        !window.confirm('Importing replaces the whole current plan (walls, rooms, doors and windows). Continue?')) {
+      return
+    }
     setActionError(null)
     setImportProgress(0)
     try {
@@ -70,10 +85,16 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
   async function handleSave() {
     setSaving(true)
     setJustSaved(false)
+    setActionError(null)
     try {
       await saveToServer(projectId)
-      setJustSaved(true)
-      setTimeout(() => setJustSaved(false), 2000)
+      if (!useGeometryStore.getState().saveConflict) {
+        setJustSaved(true)
+        setTimeout(() => setJustSaved(false), 2000)
+      }
+    } catch (err: any) {
+      // e.g. 422 overlapping rooms / 400 invalid geometry: say why instead of failing silently.
+      setActionError(err?.response?.data?.message || 'Save failed. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -134,6 +155,14 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
 
       {/* Right: Import, Save & Conflict Alert */}
       <div className="flex items-center gap-3">
+        {draftDiscarded && (
+          <div role="status" className="max-w-xs truncate text-xs text-amber-400"
+               title="Unsaved edits from an earlier session were discarded because the plan was changed since.">
+            Earlier unsaved edits were discarded (plan changed since)
+          </div>
+        )}
+        {dirty && !saveConflict && <span className="text-[11px] text-zinc-500">Unsaved changes</span>}
+
         {actionError && (
           <div role="alert" className="max-w-xs truncate text-xs text-red-400" title={actionError}>
             {actionError}
