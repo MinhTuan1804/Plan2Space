@@ -1,0 +1,104 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [ "pgdata:/var/lib/postgresql/data" ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ p2s_public ]
+
+  redis:
+    image: redis:7.2-alpine
+    networks: [ p2s_public ]
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [ p2s_public, p2s_internal ]
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z   # Docker Hub minio/minio was removed
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes: [ "miniodata:/data" ]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [ p2s_public ]
+
+  api:
+    build: ./backend/src/Plan2Space.API
+    environment:
+      ConnectionStrings__Default: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      Redis__ConnectionString: ${REDIS_URL}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_DEFAULT_USER}
+      RabbitMq__Pass: ${RABBITMQ_DEFAULT_PASS}
+      Minio__Endpoint: minio:9000
+      Ai__InternalUrl: ${AI_INTERNAL_URL}
+      Jwt__Secret: ${JWT_SECRET}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      rabbitmq: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    networks: [ p2s_public, p2s_internal ]
+
+  ai:
+    build: ./ai-service
+    environment:
+      REDIS_URL: ${REDIS_URL}
+      RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//"
+      MINIO_ENDPOINT: minio:9000
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+    networks: [ p2s_internal ]   # NOT on p2s_public — never reachable from nginx/internet
+
+  celery_worker:
+    build: ./ai-service
+    command: celery -A workers.celery_app worker --concurrency=4 --loglevel=info
+    environment:
+      REDIS_URL: ${REDIS_URL}
+      RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//"
+      MINIO_ENDPOINT: minio:9000
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+    networks: [ p2s_internal ]
+
+  web:
+    build: ./plan2space-web
+    networks: [ p2s_public ]
+
+  nginx:
+    build: ./nginx
+    ports: [ "80:80" ]
+    depends_on: [ api, web ]
+    networks: [ p2s_public ]
+
+networks:
+  p2s_internal:
+    internal: true
+  p2s_public: {}
+
+volumes:
+  pgdata:
+  miniodata:

@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  postgres:
+    ports: [ "5432:5432" ]
+  rabbitmq:
+    ports: [ "15672:15672" ]
+  minio:
+    ports: [ "9000:9000", "9001:9001" ]
+  api:
+    ports: [ "5000:5000" ]
+  ai:
+    ports: [ "8000:8000" ]   # dev-only escape hatch; removed in prod compose
