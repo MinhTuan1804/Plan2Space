@@ -1,8 +1,11 @@
+import logging
 import os
 import tempfile
 
 import httpx
 import redis
+
+logger = logging.getLogger(__name__)
 
 API_INTERNAL_URL = os.environ.get("API_INTERNAL_URL", "http://api:5000")
 # Shared secret for the API's /internal/* endpoints (the worker acts for the project owner, it has no user JWT).
@@ -23,6 +26,17 @@ def report_progress(job_id: str, status: str, percent: int) -> None:
 
 def report_error(job_id: str, message: str) -> None:
     _redis_client.set(f"job:{job_id}:error", message[:1000])
+
+
+def report_final_state(job_id: str, status: str, percent: int, error: str | None = None) -> None:
+    """Persists the job's final state in the API database (AiJobs row), so it survives a Redis restart.
+    Best effort: a reporting failure is logged and never fails the job itself."""
+    try:
+        with _http() as client:
+            client.put(f"/internal/ai/jobs/{job_id}/state", headers={"X-Internal-Token": INTERNAL_TOKEN},
+                       json={"status": status, "progressPercent": percent, "error": error}).raise_for_status()
+    except httpx.HTTPError:
+        logger.exception("Could not persist final state of job %s", job_id)
 
 
 def download_from_minio(file_object_key: str) -> str:

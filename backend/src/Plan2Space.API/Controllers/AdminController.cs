@@ -14,7 +14,9 @@ public class AdminController : ControllerBase
     private const int MaxRows = 500;
     private readonly IPlan2SpaceDbContext _db;
     private readonly IJobProgressReader _progress;
-    public AdminController(IPlan2SpaceDbContext db, IJobProgressReader progress) { _db = db; _progress = progress; }
+    private readonly AiJobOptions _jobOptions;
+    public AdminController(IPlan2SpaceDbContext db, IJobProgressReader progress, AiJobOptions jobOptions)
+    { _db = db; _progress = progress; _jobOptions = jobOptions; }
 
     [HttpGet("users")]
     public async Task<IActionResult> Users() => Ok(await _db.Users.AsNoTracking()
@@ -36,20 +38,13 @@ public class AdminController : ControllerBase
             .Select(j => new { j.Id, j.ProjectId, j.Status, j.ProgressPercent, j.ErrorMessage, j.CreatedAt })
             .ToListAsync();
 
-        // Workers report live state to Redis; the DB row alone would show every job as "Queued" forever.
+        var now = DateTimeOffset.UtcNow;
         var rows = new List<object>(jobs.Count);
         foreach (var j in jobs)
         {
-            var live = await _progress.GetCurrentStateAsync(j.Id);
-            rows.Add(new
-            {
-                j.Id,
-                j.ProjectId,
-                Status = live?.Status ?? j.Status.ToString(),
-                ProgressPercent = live?.Percent ?? j.ProgressPercent,
-                Error = await _progress.GetErrorAsync(j.Id) ?? j.ErrorMessage,
-                j.CreatedAt
-            });
+            var state = await JobStatusResolver.ResolveAsync(j.Id, j.Status, j.ProgressPercent, j.ErrorMessage,
+                j.CreatedAt, _progress, _jobOptions, now);
+            rows.Add(new { j.Id, j.ProjectId, state.Status, state.ProgressPercent, state.Error, j.CreatedAt });
         }
         return Ok(rows);
     }

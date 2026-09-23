@@ -36,3 +36,27 @@ def test_push_raises_with_api_message_on_rejection(monkeypatch):
     monkeypatch.setattr(api_client, "_http", _client(handler))
     with pytest.raises(api_client.GeometryRejectedError, match="Overlapping rooms"):
         api_client.push_geometry_to_api("p1", {"walls": [], "rooms": [], "openings": []})
+
+
+def test_final_job_state_is_written_to_the_api_database(monkeypatch):
+    seen = {}
+
+    def handler(request: httpx.Request):
+        seen["call"] = (request.method, request.url.path, request.headers.get("X-Internal-Token"))
+        seen["body"] = json.loads(request.read())
+        return httpx.Response(204)
+
+    monkeypatch.setattr(api_client, "_http", _client(handler))
+    monkeypatch.setattr(api_client, "INTERNAL_TOKEN", "secret")
+
+    api_client.report_final_state("job-9", "Failed", 30, "No walls found")
+
+    assert seen["call"] == ("PUT", "/internal/ai/jobs/job-9/state", "secret")
+    assert seen["body"] == {"status": "Failed", "progressPercent": 30, "error": "No walls found"}
+
+
+def test_final_state_reporting_never_breaks_the_job(monkeypatch):
+    def handler(request):
+        raise httpx.ConnectError("api down")
+    monkeypatch.setattr(api_client, "_http", _client(handler))
+    api_client.report_final_state("job-9", "Completed", 100)   # must not raise

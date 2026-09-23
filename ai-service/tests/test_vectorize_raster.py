@@ -40,6 +40,22 @@ def test_interior_wall_is_found_once_and_outer_walls_are_not_split(tmp_path):
     walls = vectorize_raster(str(image_path), use_model=False)["walls"]
     assert len(walls) == 5
 
+def test_text_and_dimension_labels_are_not_vectorized_as_walls(tmp_path):
+    from PIL import ImageDraw, ImageFont
+    image_path = tmp_path / "floorplan.png"
+    _write_synthetic_floorplan(str(image_path))
+    img = Image.open(image_path)
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.load_default(size=12)
+    for x, y, text in [(60, 60, "KITCHEN"), (60, 120, "3000"), (110, 90, "WC"), (170, 10, "1200"), (5, 180, "LIVING")]:
+        draw.text((x, y), text, fill=0, font=font)
+    img.save(image_path)
+
+    walls = vectorize_raster(str(image_path), use_model=False)["walls"]
+
+    assert len(walls) == 4
+
+
 def test_model_path_without_checkpoint_degrades_to_threshold(tmp_path):
     # No trained weights are shipped yet: use_model=True must not crash or download anything.
     image_path = tmp_path / "floorplan.png"

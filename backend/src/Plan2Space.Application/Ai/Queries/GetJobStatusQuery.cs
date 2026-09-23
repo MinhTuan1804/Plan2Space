@@ -11,21 +11,20 @@ public class GetJobStatusHandler : IRequestHandler<GetJobStatusQuery, JobStatusD
 {
     private readonly IPlan2SpaceDbContext _db;
     private readonly IJobProgressReader _progress;
-    public GetJobStatusHandler(IPlan2SpaceDbContext db, IJobProgressReader progress) { _db = db; _progress = progress; }
+    private readonly AiJobOptions _options;
+
+    public GetJobStatusHandler(IPlan2SpaceDbContext db, IJobProgressReader progress, AiJobOptions options)
+    { _db = db; _progress = progress; _options = options; }
 
     public async Task<JobStatusDto?> Handle(GetJobStatusQuery q, CancellationToken ct)
     {
         var job = await _db.AiJobs.AsNoTracking()
             .Where(j => j.Id == q.JobId && j.Project.OwnerId == q.RequestingUserId)
-            .Select(j => new { j.Status, j.ProgressPercent, j.ErrorMessage })
+            .Select(j => new { j.Status, j.ProgressPercent, j.ErrorMessage, j.CreatedAt })
             .FirstOrDefaultAsync(ct);
         if (job is null) return null;
 
-        // Workers report live progress to Redis; the DB row is the fallback before the first report.
-        var live = await _progress.GetCurrentStateAsync(q.JobId);
-        var error = await _progress.GetErrorAsync(q.JobId) ?? job.ErrorMessage;
-        return live is { } s
-            ? new JobStatusDto(s.Status, s.Percent, error)
-            : new JobStatusDto(job.Status.ToString(), job.ProgressPercent, error);
+        return await JobStatusResolver.ResolveAsync(q.JobId, job.Status, job.ProgressPercent, job.ErrorMessage,
+            job.CreatedAt, _progress, _options, DateTimeOffset.UtcNow);
     }
 }

@@ -27,9 +27,11 @@ def test_dxf_job_pushes_metre_walls_in_api_shape():
     celery_app.conf.task_always_eager = True
     with patch("workers.tasks.download_from_minio", return_value="tests/fixtures/sample_house_plan.dxf"), \
          patch("workers.tasks.report_progress"), \
+         patch("workers.tasks.report_final_state") as mock_final, \
          patch("workers.tasks.push_geometry_to_api") as mock_push:
         vectorize_job.delay(job_id="job-2", project_id="proj-2", file_object_key="projects/p/f.dxf").get()
 
+    mock_final.assert_called_once_with("job-2", "Completed", 100)
     project_id, geometry = mock_push.call_args[0]
     assert project_id == "proj-2"
     assert len(geometry["walls"]) == 6
@@ -60,9 +62,11 @@ def test_pipeline_error_marks_job_failed_and_pushes_nothing():
     with patch("workers.tasks.download_from_minio", return_value="tests/fixtures/no_wall_layers.dxf"), \
          patch("workers.tasks.report_progress") as mock_progress, \
          patch("workers.tasks.report_error") as mock_error, \
+         patch("workers.tasks.report_final_state") as mock_final, \
          patch("workers.tasks.push_geometry_to_api") as mock_push:
         result = vectorize_job.delay(job_id="job-4", project_id="p", file_object_key="k.dxf").get()
 
+    assert mock_final.call_args[0][:2] == ("job-4", "Failed") and "SKETCH" in mock_final.call_args[0][3]
     assert mock_progress.call_args_list[-1][0][1] == "Failed"
     assert "SKETCH" in result["error"]
     assert mock_error.call_args[0][0] == "job-4" and "SKETCH" in mock_error.call_args[0][1]

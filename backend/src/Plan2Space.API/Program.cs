@@ -49,6 +49,7 @@ builder.Services.AddSingleton<IFileStorage>(_ => new MinioFileStorage(
     config["Minio:AccessKey"] ?? throw new InvalidOperationException("Minio:AccessKey missing"),
     config["Minio:SecretKey"] ?? throw new InvalidOperationException("Minio:SecretKey missing")));
 builder.Services.AddSingleton<JobProgressHub>();
+builder.Services.AddSingleton(new AiJobOptions(TimeSpan.FromMinutes(config.GetValue("Ai:JobTimeoutMinutes", 15))));
 // Service-to-service clients for the ai-service (internal network, shared token).
 void ConfigureAiClient(HttpClient c)
 {
