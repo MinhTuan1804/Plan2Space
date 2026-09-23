@@ -13,6 +13,8 @@ import {
   Sparkles,
   Download
 } from 'lucide-react'
+import { CanvasEditor } from '../components/studio/Canvas2D/CanvasEditor'
+import { Scene } from '../components/studio/Viewer3D/Scene'
 
 export default function StudioPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -142,7 +144,7 @@ export default function StudioPage() {
             activeTab === '2d' ? 'hidden' : 'block'
           }`}
         >
-          {/* Slot content is mounted here by Viewer3D */}
+          <Scene />
         </div>
       </div>
     </div>
