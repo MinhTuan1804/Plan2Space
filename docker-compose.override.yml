@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   postgres:
     ports: [ "5433:5432" ]   # host 5432 is taken by a native Postgres on the dev machine

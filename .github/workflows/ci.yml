@@ -1,0 +1,41 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      # SchemaTests migrate against the compose PostGIS on host port 5433 (docker-compose.override.yml);
+      # the API integration tests start their own Testcontainers.
+      - name: Start PostGIS for SchemaTests
+        run: cp .env.example .env && docker compose up -d --wait postgres
+      - run: dotnet test backend/Plan2Space.sln
+
+  ai-service-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      # opencv-python (pulled in by ultralytics/paddleocr) needs these on a bare runner.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
+      - run: pip install -r ai-service/requirements.txt --no-cache-dir
+      - run: cd ai-service && pytest tests/ -v
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: cd plan2space-web && npm ci && npx vitest run && npm run build
+
+  full-stack-smoke:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, ai-service-tests, frontend-tests]
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/smoke-test-full-stack.sh
