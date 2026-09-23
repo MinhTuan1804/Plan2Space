@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: [
+      { find: /^konva$/, replacement: 'konva/lib/index.js' }
+    ]
+  },
   server: {
     port: 3000,
     proxy: {

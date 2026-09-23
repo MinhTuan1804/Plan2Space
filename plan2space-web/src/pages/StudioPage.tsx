@@ -132,7 +132,7 @@ export default function StudioPage() {
             activeTab === '3d' ? 'hidden' : 'block'
           }`}
         >
-          {/* Slot content is mounted here by CanvasEditor */}
+          <CanvasEditor />
         </div>
 
         {/* 3D Viewer Slot */}
