@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Plan2Space.Application.Common;
 using Plan2Space.Domain.Entities;
 
 namespace Plan2Space.Infrastructure.Persistence;
 
-public class Plan2SpaceDbContext : DbContext
+public class Plan2SpaceDbContext : DbContext, IPlan2SpaceDbContext
 {
     public Plan2SpaceDbContext(DbContextOptions<Plan2SpaceDbContext> options) : base(options) { }
 
