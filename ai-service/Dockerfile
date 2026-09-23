@@ -4,8 +4,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Workers run on p2s_internal (no internet): download PaddleOCR models at build time.
+ENV HOME=/opt/p2s-home
+RUN mkdir -p $HOME && python -c "import cv2, pyclipper, scipy.ndimage, shapely, skimage.morphology; from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, lang='en', show_log=False)"
 COPY . .
-RUN addgroup --system p2s && adduser --system --ingroup p2s p2s
+RUN addgroup --system p2s && adduser --system --ingroup p2s --home $HOME p2s && chown -R p2s:p2s $HOME
 USER p2s
 EXPOSE 8000
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
