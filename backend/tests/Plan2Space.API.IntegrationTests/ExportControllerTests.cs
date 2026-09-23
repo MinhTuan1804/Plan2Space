@@ -78,6 +78,22 @@ public class ExportControllerTests : IClassFixture<Plan2SpaceWebApplicationFacto
         Assert.Equal(FakeGlb, await _factory.TryReadStoredObjectAsync(asset.MinioObjectKey));
     }
 
+    [Theory]
+    [InlineData("ifc", "application/x-step", ".ifc")]
+    [InlineData("pdf", "application/pdf", ".pdf")]
+    [InlineData("obj", "model/obj", ".obj")]
+    [InlineData("gltf", "model/gltf+json", ".gltf")]
+    public async Task EveryExportFormat_IsServedWithItsContentTypeAndExtension(string format, string contentType, string extension)
+    {
+        var (client, projectId, _, _) = await SetupAsync($"export-{format}@plan2space.dev", (_, _) => FakeGlb);
+
+        var response = await client.PostAsync($"/api/export/{projectId}?format={format}", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(contentType, response.Content.Headers.ContentType!.MediaType);
+        Assert.Equal($"Export-Test{extension}", response.Content.Headers.ContentDisposition!.FileName);
+    }
+
     [Fact]
     public async Task UnsupportedFormat_Returns400WithoutCallingTheExporter()
     {

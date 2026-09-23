@@ -1,19 +1,13 @@
 import math
 
-import numpy as np
 import trimesh
 from trimesh import transformations as tf
 
-DOOR_HEIGHT_M = 2.1      # same as the Studio viewer's cutters (cutOpenings.ts)
-WINDOW_HEIGHT_M = 1.2
+from pipeline.plan_geometry import ExportInputError, nearest_segment, opening_height, wall_segments, xy
+
 CONTENT_TYPES = {"gltf": "model/gltf+json", "glb": "model/gltf-binary", "obj": "model/obj"}
 # Project space is Z-up (plan XY + height Z); glTF and most OBJ consumers are Y-up.
 Z_UP_TO_Y_UP = tf.rotation_matrix(-math.pi / 2, [1, 0, 0])
-
-
-def _xy(p) -> tuple[float, float]:
-    # Accepts the API's GeometryDto points ({"x", "y"}) as well as [x, y] pairs.
-    return (float(p["x"]), float(p["y"])) if isinstance(p, dict) else (float(p[0]), float(p[1]))
 
 
 def _box_along(a, b, width_across: float, height: float, z0: float = 0.0, length: float | None = None, centre=None):
@@ -27,18 +21,8 @@ def _box_along(a, b, width_across: float, height: float, z0: float = 0.0, length
     return box
 
 
-def _nearest_segment(segments, p):
-    def distance(seg):
-        (ax, ay), (bx, by) = seg
-        dx, dy = bx - ax, by - ay
-        t = max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - ay) * dy) / (dx * dx + dy * dy)))
-        return math.hypot(p[0] - (ax + t * dx), p[1] - (ay + t * dy))
-    return min(segments, key=distance)
-
-
 def _wall_mesh(wall: dict, openings: list[dict]) -> trimesh.Trimesh | None:
-    points = [_xy(p) for p in wall["points"]]
-    segments = [(a, b) for a, b in zip(points, points[1:]) if a != b]
+    segments = wall_segments(wall)
     if not segments:
         return None
     thickness, height = float(wall["thicknessMeters"]), float(wall["heightMeters"])
@@ -48,13 +32,15 @@ def _wall_mesh(wall: dict, openings: list[dict]) -> trimesh.Trimesh | None:
 
     cutters = []
     for o in openings:
-        centre = _xy(o["position"])
-        a, b = _nearest_segment(segments, centre)
-        cut_height = DOOR_HEIGHT_M if str(o["type"]).lower() == "door" else WINDOW_HEIGHT_M
+        centre = xy(o["position"])
+        a, b = nearest_segment(segments, centre)
+        cut_height = opening_height(o)
         cutters.append(_box_along(a, b, thickness * 2, cut_height, z0=float(o["sillHeightMeters"]),
                                   length=float(o["widthMeters"]), centre=centre))
     if cutters:
-        mesh = trimesh.boolean.difference([mesh, *cutters], engine="manifold")
+        # trimesh's difference takes exactly two meshes: merge all cutters, then subtract once.
+        cutter = cutters[0] if len(cutters) == 1 else trimesh.boolean.union(cutters, engine="manifold")
+        mesh = trimesh.boolean.difference([mesh, cutter], engine="manifold")
     return mesh
 
 
@@ -65,13 +51,13 @@ def build_mesh_from_geometry(geometry: dict) -> trimesh.Trimesh:
         _wall_mesh(w, [o for o in openings if o.get("wallId") == w.get("id")]) for w in geometry.get("walls", [])
     ) if m is not None]
     if not meshes:
-        raise ValueError("The plan has no walls — nothing to export")
+        raise ExportInputError("The plan has no walls — nothing to export")
     return meshes[0] if len(meshes) == 1 else trimesh.util.concatenate(meshes)
 
 
 def export_mesh(mesh: trimesh.Trimesh, fmt: str) -> bytes:
     if fmt not in CONTENT_TYPES:
-        raise ValueError(f"Unsupported export format: {fmt} (use gltf, glb or obj)")
+        raise ExportInputError(f"Unsupported export format: {fmt} (use gltf, glb or obj)")
     y_up = mesh.copy()
     y_up.apply_transform(Z_UP_TO_Y_UP)
     if fmt == "gltf":

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGeometryStore } from '../../stores/geometryStore'
 import { runVectorization } from '../../services/aiJobService'
+import { downloadExport, EXPORT_OPTIONS, ExportFormat } from '../../services/exportService'
 import {
   ArrowLeft,
   Save,
@@ -15,7 +16,8 @@ import {
   MousePointer,
   Square,
   DoorOpen,
-  Upload
+  Upload,
+  Download
 } from 'lucide-react'
 
 const ACCEPTED_PLAN_TYPES = '.dxf,.png,.jpg,.jpeg,.pdf'
@@ -31,20 +33,35 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   const [importProgress, setImportProgress] = useState<number | null>(null)
-  const [importError, setImportError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState<ExportFormat | null>(null)
+
+  async function handleExport(format: ExportFormat) {
+    setExportOpen(false)
+    setActionError(null)
+    setExporting(format)
+    try {
+      await downloadExport(projectId, format)
+    } catch (err: any) {
+      setActionError(err?.message || 'Export failed')
+    } finally {
+      setExporting(null)
+    }
+  }
 
   // Upload a plan → AI vectorization → the worker writes geometry server-side → reload it here.
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    setImportError(null)
+    setActionError(null)
     setImportProgress(0)
     try {
       await runVectorization(projectId, file, (_status, pct) => setImportProgress(pct))
       await loadFromServer(projectId)
     } catch (err: any) {
-      setImportError(err?.response?.data?.message || err?.message || 'AI import failed')
+      setActionError(err?.response?.data?.message || err?.message || 'AI import failed')
     } finally {
       setImportProgress(null)
     }
@@ -117,9 +134,9 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
 
       {/* Right: Import, Save & Conflict Alert */}
       <div className="flex items-center gap-3">
-        {importError && (
-          <div role="alert" className="max-w-xs truncate text-xs text-red-400" title={importError}>
-            {importError}
+        {actionError && (
+          <div role="alert" className="max-w-xs truncate text-xs text-red-400" title={actionError}>
+            {actionError}
           </div>
         )}
 
@@ -160,6 +177,33 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
             <span>Saved</span>
           </div>
         )}
+
+        <div className="relative">
+          <button
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-60"
+            onClick={() => setExportOpen((o) => !o)}
+            disabled={exporting !== null}
+            aria-haspopup="menu"
+            aria-expanded={exportOpen}
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>{exporting ? `Exporting ${exporting.toUpperCase()}…` : 'Export'}</span>
+          </button>
+          {exportOpen && (
+            <div role="menu" className="absolute right-0 top-full z-30 mt-1 w-48 rounded-lg border border-zinc-800 bg-[#121215] p-1 shadow-xl">
+              {EXPORT_OPTIONS.map((o) => (
+                <button
+                  key={o.format}
+                  role="menuitem"
+                  className="block w-full rounded px-2.5 py-1.5 text-left text-xs text-zinc-200 hover:bg-zinc-800"
+                  onClick={() => handleExport(o.format)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <button
           className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white px-3.5 py-1.5 text-xs font-medium transition shadow-sm disabled:opacity-50"

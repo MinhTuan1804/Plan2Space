@@ -19,8 +19,8 @@ public class ExportController : ControllerBase
     public async Task<IActionResult> Export(Guid projectId, [FromQuery] string format, CancellationToken ct)
     {
         format = (format ?? "").ToLowerInvariant();
-        if (!ExportFormats.Mesh.ContainsKey(format))
-            return BadRequest(new { message = $"Unsupported format '{format}'. Use one of: {string.Join(", ", ExportFormats.Mesh.Keys)}." });
+        if (!ExportFormats.Supported.ContainsKey(format))
+            return BadRequest(new { message = $"Unsupported format '{format}'. Use one of: {string.Join(", ", ExportFormats.Supported.Keys)}." });
         try
         {
             var file = await _mediator.Send(new RequestExportCommand(projectId, CurrentUserId, format), ct);

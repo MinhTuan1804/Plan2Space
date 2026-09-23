@@ -22,7 +22,7 @@ public class RequestExportHandler : IRequestHandler<RequestExportCommand, Export
 
     public async Task<ExportFile> Handle(RequestExportCommand cmd, CancellationToken ct)
     {
-        if (!ExportFormats.Mesh.TryGetValue(cmd.Format, out var fmt))
+        if (!ExportFormats.Supported.TryGetValue(cmd.Format, out var fmt))
             throw new ArgumentException($"Unsupported export format '{cmd.Format}'");
 
         var geometry = await _mediator.Send(new GetGeometryQuery(cmd.ProjectId, cmd.RequestingUserId), ct)

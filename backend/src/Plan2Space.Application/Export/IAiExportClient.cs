@@ -21,12 +21,14 @@ public class ExportRejectedException : Exception
 
 public static class ExportFormats
 {
-    // format -> (file extension, content type).
-    public static readonly IReadOnlyDictionary<string, (string Extension, string ContentType)> Mesh =
+    // format -> (file extension, content type). ifc = IFC4 BIM model, pdf = BOQ report.
+    public static readonly IReadOnlyDictionary<string, (string Extension, string ContentType)> Supported =
         new Dictionary<string, (string, string)>
         {
             ["gltf"] = ("gltf", "model/gltf+json"),
             ["glb"] = ("glb", "model/gltf-binary"),
             ["obj"] = ("obj", "model/obj"),
+            ["ifc"] = ("ifc", "application/x-step"),
+            ["pdf"] = ("pdf", "application/pdf"),
         };
 }
