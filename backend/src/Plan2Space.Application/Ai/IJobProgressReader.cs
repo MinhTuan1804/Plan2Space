@@ -4,4 +4,7 @@ namespace Plan2Space.Application.Ai;
 public interface IJobProgressReader
 {
     Task<(string Status, int Percent)?> GetCurrentStateAsync(Guid jobId);
+
+    // Why a job failed (Redis key "job:{id}:error"), if the worker reported it.
+    Task<string?> GetErrorAsync(Guid jobId);
 }

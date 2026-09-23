@@ -18,6 +18,12 @@ public class RedisJobProgressSubscriber : IJobProgressReader
         return value.IsNullOrEmpty ? null : TryParse(value.ToString());
     }
 
+    public async Task<string?> GetErrorAsync(Guid jobId)
+    {
+        var value = await _redis.GetDatabase().StringGetAsync($"job:{jobId}:error");
+        return value.IsNullOrEmpty ? null : value.ToString();
+    }
+
     public ISubscriber Subscriber => _redis.GetSubscriber();
     public RedisChannel ChannelFor(Guid jobId) => RedisChannel.Literal($"job:{jobId}:updates");
 

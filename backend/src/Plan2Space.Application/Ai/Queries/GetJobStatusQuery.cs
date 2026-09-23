@@ -4,7 +4,7 @@ using Plan2Space.Application.Common;
 
 namespace Plan2Space.Application.Ai.Queries;
 
-public record JobStatusDto(string Status, int ProgressPercent);
+public record JobStatusDto(string Status, int ProgressPercent, string? Error = null);
 public record GetJobStatusQuery(Guid JobId, Guid RequestingUserId) : IRequest<JobStatusDto?>;
 
 public class GetJobStatusHandler : IRequestHandler<GetJobStatusQuery, JobStatusDto?>
@@ -17,14 +17,15 @@ public class GetJobStatusHandler : IRequestHandler<GetJobStatusQuery, JobStatusD
     {
         var job = await _db.AiJobs.AsNoTracking()
             .Where(j => j.Id == q.JobId && j.Project.OwnerId == q.RequestingUserId)
-            .Select(j => new { j.Status, j.ProgressPercent })
+            .Select(j => new { j.Status, j.ProgressPercent, j.ErrorMessage })
             .FirstOrDefaultAsync(ct);
         if (job is null) return null;
 
         // Workers report live progress to Redis; the DB row is the fallback before the first report.
         var live = await _progress.GetCurrentStateAsync(q.JobId);
+        var error = await _progress.GetErrorAsync(q.JobId) ?? job.ErrorMessage;
         return live is { } s
-            ? new JobStatusDto(s.Status, s.Percent)
-            : new JobStatusDto(job.Status.ToString(), job.ProgressPercent);
+            ? new JobStatusDto(s.Status, s.Percent, error)
+            : new JobStatusDto(job.Status.ToString(), job.ProgressPercent, error);
     }
 }

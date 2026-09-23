@@ -17,6 +17,7 @@ using Xunit;
 public class Plan2SpaceWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string JwtSecret = "integration_test_secret_at_least_32_chars!";
+    public const string InternalToken = "integration_test_internal_token";
     public const string RabbitUser = "p2s";
     public const string RabbitPass = "p2s";
     private const string MinioUser = "p2s_minio";
@@ -51,6 +52,7 @@ public class Plan2SpaceWebApplicationFactory : WebApplicationFactory<Program>, I
     {
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
         builder.UseSetting("Jwt:Secret", JwtSecret);
+        builder.UseSetting("Internal:ServiceToken", InternalToken);
         builder.UseSetting("Redis:ConnectionString", RedisConnectionString);
         builder.UseSetting("RabbitMq:Host", RabbitHost);
         builder.UseSetting("RabbitMq:Port", RabbitPort.ToString());
@@ -82,6 +84,13 @@ public class Plan2SpaceWebApplicationFactory : WebApplicationFactory<Program>, I
         var value = $"{status}|{percent}";
         await redis.GetDatabase().StringSetAsync($"job:{jobId}:progress", value);
         await redis.GetSubscriber().PublishAsync(RedisChannel.Literal($"job:{jobId}:updates"), value);
+    }
+
+    // Simulates a worker reporting why a job failed (Task 12's report_error).
+    public async Task SetJobErrorInRedisAsync(Guid jobId, string message)
+    {
+        await using var redis = await ConnectionMultiplexer.ConnectAsync(RedisConnectionString);
+        await redis.GetDatabase().StringSetAsync($"job:{jobId}:error", message);
     }
 
     // Containers are shared across classes and reaped by Testcontainers' resource reaper at process exit.

@@ -40,7 +40,9 @@ public class UploadProjectFileHandler : IRequestHandler<UploadProjectFileCommand
             ".jpg" or ".jpeg" => (FileKind.RasterImage, "image/jpeg"),
             ".pdf" => (FileKind.Pdf, "application/pdf"),
             ".dxf" => (FileKind.Dxf, "application/dxf"),
-            ".dwg" => (FileKind.Dwg, "application/acad"),
+            // Global constraint: DWG needs server-side conversion (ODA File Converter), which is not installed.
+            ".dwg" => throw new FileValidationException(
+                "DWG is not supported yet (no server-side DWG→DXF converter installed). Please export the drawing as DXF."),
             _ => throw new FileValidationException($"Unsupported file type '{ext}'")
         };
 

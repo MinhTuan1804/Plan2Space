@@ -25,33 +25,7 @@ public class GeometryController : ControllerBase
     }
 
     [HttpPut]
-    public async Task<IActionResult> Save(Guid projectId, SaveRequest req)
-    {
-        try
-        {
-            var version = await _mediator.Send(new SaveGeometryCommand(
-                projectId, CurrentUserId, req.BaseVersion, req.Walls, req.Rooms, req.Openings));
-            return Ok(new { version });
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (GeometryConflictException)
-        {
-            return Conflict(new { message = "Geometry was modified by another session. Reload and retry." });
-        }
-        catch (RoomOverlapException ex)
-        {
-            return UnprocessableEntity(new
-            {
-                message = ex.Message,
-                overlaps = ex.Overlaps.Select(o => new { roomAId = o.RoomAId, roomBId = o.RoomBId })
-            });
-        }
-        catch (GeometryValidationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    public Task<IActionResult> Save(Guid projectId, SaveRequest req) =>
+        GeometrySaveResults.RunAsync(this, () => _mediator.Send(new SaveGeometryCommand(
+            projectId, CurrentUserId, req.BaseVersion, req.Walls, req.Rooms, req.Openings)));
 }

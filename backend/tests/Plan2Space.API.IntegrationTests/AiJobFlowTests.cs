@@ -157,6 +157,30 @@ public class AiJobFlowTests : IClassFixture<Plan2SpaceWebApplicationFactory>
     }
 
     [Fact]
+    public async Task FailedJob_StatusCarriesTheWorkerErrorMessage()
+    {
+        var (client, _, project) = await AuthedProjectAsync("ai-failed@plan2space.dev", "Failed");
+        var fileId = await _factory.UploadFixtureFileAsync(client, project.Id, "fixtures/blank.png");
+        var jobId = await EnqueueAsync(client, project.Id, fileId);
+
+        await _factory.SetJobErrorInRedisAsync(jobId, "No walls found: drawing layers are ['SKETCH']");
+        await _factory.SetJobProgressInRedisAsync(jobId, "Failed", 30);
+
+        var body = await client.GetFromJsonAsync<JsonElement>($"/api/ai/job/{jobId}/status");
+        Assert.Equal("Failed", body.GetProperty("status").GetString());
+        Assert.Contains("SKETCH", body.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Upload_RejectsDwgUntilServerSideConversionExists()
+    {
+        var (client, _, project) = await AuthedProjectAsync("ai-dwg@plan2space.dev", "DWG");
+        var res = await ProjectTestHelpers.UploadFileAsync(client, project.Id, "fixtures/plan.dwg");
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.Contains("DXF", await res.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Upload_RejectsFileWhoseBytesDoNotMatchItsExtension()
     {
         var (client, _, project) = await AuthedProjectAsync("ai-upload@plan2space.dev", "Upload");

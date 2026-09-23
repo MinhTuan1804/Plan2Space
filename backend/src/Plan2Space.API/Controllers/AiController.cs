@@ -32,6 +32,6 @@ public class AiController : ControllerBase
     public async Task<IActionResult> Status(Guid id)
     {
         var dto = await _mediator.Send(new GetJobStatusQuery(id, CurrentUserId));
-        return dto is null ? NotFound() : Ok(new { status = dto.Status, progressPercent = dto.ProgressPercent });
+        return dto is null ? NotFound() : Ok(new { status = dto.Status, progressPercent = dto.ProgressPercent, error = dto.Error });
     }
 }
