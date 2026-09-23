@@ -71,8 +71,11 @@ async def main():
 asyncio.run(main())
 " || { echo "FAIL: job WebSocket via nginx"; exit 1; }
 
-WALL_COUNT=$(curl -sf "$BASE/api/projects/$PROJECT_ID/geometry" -H "$AUTH" | json 'len(d["walls"])')
+GEOMETRY=$(curl -sf "$BASE/api/projects/$PROJECT_ID/geometry" -H "$AUTH")
+WALL_COUNT=$(echo "$GEOMETRY" | json 'len(d["walls"])')
+ROOM_COUNT=$(echo "$GEOMETRY" | json 'len(d["rooms"])')
 [ "$WALL_COUNT" -eq 6 ] || { echo "FAIL: expected the DXF's 6 walls, got $WALL_COUNT"; exit 1; }
+[ "$ROOM_COUNT" -eq 3 ] || { echo "FAIL: expected 3 rooms enclosed by those walls, got $ROOM_COUNT"; exit 1; }
 
 curl -sf -o "$OUT/export.gltf" -X POST -d "" "$BASE/api/export/$PROJECT_ID?format=gltf" -H "$AUTH"
 "$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['meshes'], 'no meshes'" "$OUT/export.gltf" \
