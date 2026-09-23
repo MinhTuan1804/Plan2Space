@@ -98,6 +98,33 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
     }
 
     [Fact]
+    public async Task ReusingAnElementIdFromAnotherProject_SavesWithFreshIdsAndKeepsOpeningsAttached()
+    {
+        var (clientA, projectA) = await AuthedProjectAsync("geo-idreuse-a@plan2space.dev");
+        var (clientB, projectB) = await AuthedProjectAsync("geo-idreuse-b@plan2space.dev");
+        var sharedWallId = Guid.NewGuid();
+        var sharedRoomId = Guid.NewGuid();
+        object Payload() => new
+        {
+            baseVersion = 0,
+            walls = new[] { new { id = sharedWallId, points = new[] { new { x = 0.0, y = 0.0 }, new { x = 5.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 2.8 } },
+            rooms = new[] { new { id = sharedRoomId, points = Square(0, 1, 3), label = "R" } },
+            openings = new[] { new { wallId = sharedWallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 0.9, sillHeightMeters = 0.0 } }
+        };
+
+        Assert.Equal(HttpStatusCode.OK, (await clientA.PutAsJsonAsync($"/api/projects/{projectA.Id}/geometry", Payload())).StatusCode);
+        // Same ids, different project (copied payload / hostile client): must not collide with project A's rows.
+        Assert.Equal(HttpStatusCode.OK, (await clientB.PutAsJsonAsync($"/api/projects/{projectB.Id}/geometry", Payload())).StatusCode);
+
+        var geoB = await clientB.GetFromJsonAsync<GeometryBody>($"/api/projects/{projectB.Id}/geometry");
+        var wallB = Assert.Single(geoB!.Walls).Id;
+        Assert.NotEqual(sharedWallId, wallB);
+        Assert.Equal(wallB, Assert.Single(geoB.Openings).WallId);
+        var geoA = await clientA.GetFromJsonAsync<GeometryBody>($"/api/projects/{projectA.Id}/geometry");
+        Assert.Equal(sharedWallId, Assert.Single(geoA!.Walls).Id);
+    }
+
+    [Fact]
     public async Task OpeningOnUnknownWall_Returns400()
     {
         var (client, project) = await AuthedProjectAsync("geo-badopening@plan2space.dev");

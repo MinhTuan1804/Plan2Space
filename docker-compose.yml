@@ -80,9 +80,15 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       API_INTERNAL_URL: http://api:5000
       P2S_INTERNAL_TOKEN: ${P2S_INTERNAL_TOKEN}
+      # Co-pilot LLM (OpenAI-compatible; GPT-4o mini by default, COPILOT_BASE_URL/COPILOT_MODEL for e.g. Gemini Flash)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      COPILOT_MODEL: ${COPILOT_MODEL:-gpt-4o-mini}
+      COPILOT_BASE_URL: ${COPILOT_BASE_URL:-}
     depends_on:
       rabbitmq: { condition: service_healthy }
-    networks: [ p2s_internal ]   # NOT on p2s_public — never reachable from nginx/internet
+    # NOT on p2s_public — never reachable from nginx/internet. p2s_egress only lets it call the LLM API outbound
+    # (no published ports); celery_worker stays internal-only.
+    networks: [ p2s_internal, p2s_egress ]
 
   celery_worker:
     build: ./ai-service
@@ -114,6 +120,7 @@ networks:
   p2s_internal:
     internal: true
   p2s_public: {}
+  p2s_egress: {}
 
 volumes:
   pgdata:

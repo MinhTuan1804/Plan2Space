@@ -22,3 +22,4 @@ paddleocr==2.8.1
 paddlepaddle==2.6.2
 trimesh==4.4.9
 pypdfium2==4.30.0
+openai==1.51.0

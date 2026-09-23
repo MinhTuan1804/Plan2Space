@@ -4,6 +4,7 @@ import { useGeometryStore } from '../stores/geometryStore'
 import { CanvasEditor } from '../components/studio/Canvas2D/CanvasEditor'
 import { Scene } from '../components/studio/Viewer3D/Scene'
 import { StudioToolbar } from '../components/studio/StudioToolbar'
+import { CopilotChat } from '../components/studio/Copilot/CopilotChat'
 
 export default function StudioPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -27,6 +28,7 @@ export default function StudioPage() {
         <div id="viewer-3d-slot" className="flex-1 relative bg-[#09090b]">
           <Scene />
         </div>
+        <CopilotChat projectId={projectId} />
       </div>
     </div>
   )

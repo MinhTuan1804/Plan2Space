@@ -51,16 +51,24 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
 
         var nextVersion = cmd.BaseVersion + 1;
 
+        // A client-supplied id is honoured only if it is this project's element or unused anywhere;
+        // an id owned by another project (copied payload, hostile client) or repeated in the request gets
+        // a fresh id, and openings follow their wall through wallIdMap.
         var existingWalls = project.Walls.ToDictionary(w => w.Id);
+        var takenWallIds = await TakenElsewhereAsync(_db.Walls, cmd.Walls.Select(w => w.Id), existingWalls.Keys, ct);
+        var usedWallIds = new HashSet<Guid>();
+        var wallIdMap = new Dictionary<Guid, Guid>();
         var keptWalls = new List<Wall>();
         foreach (var w in cmd.Walls)
         {
             if (w.Points.Count < 2)
                 throw new GeometryValidationException("A wall needs at least 2 points");
             var line = new LineString(w.Points.Select(p => new Coordinate(p.X, p.Y)).ToArray());
-            var wall = w.Id is Guid id && existingWalls.TryGetValue(id, out var found)
+            var wall = w.Id is Guid id && existingWalls.TryGetValue(id, out var found) && usedWallIds.Add(id)
                 ? found
-                : new Wall { Id = w.Id ?? Guid.NewGuid(), ProjectId = project.Id };
+                : new Wall { Id = FreshOrRequested(w.Id, takenWallIds, existingWalls.Keys, usedWallIds), ProjectId = project.Id };
+            if (w.Id is Guid requested)
+                wallIdMap.TryAdd(requested, wall.Id);
             wall.Geometry = line;
             wall.ThicknessMeters = w.ThicknessMeters;
             wall.HeightMeters = w.HeightMeters;
@@ -69,13 +77,15 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
         }
 
         var existingRooms = project.Rooms.ToDictionary(r => r.Id);
+        var takenRoomIds = await TakenElsewhereAsync(_db.Rooms, cmd.Rooms.Select(r => r.Id), existingRooms.Keys, ct);
+        var usedRoomIds = new HashSet<Guid>();
         var keptRooms = new List<Room>();
         foreach (var r in cmd.Rooms)
         {
             var polygon = BuildRoomPolygon(r.Points);
-            var room = r.Id is Guid id && existingRooms.TryGetValue(id, out var found)
+            var room = r.Id is Guid id && existingRooms.TryGetValue(id, out var found) && usedRoomIds.Add(id)
                 ? found
-                : new Room { Id = r.Id ?? Guid.NewGuid(), ProjectId = project.Id };
+                : new Room { Id = FreshOrRequested(r.Id, takenRoomIds, existingRooms.Keys, usedRoomIds), ProjectId = project.Id };
             room.Geometry = polygon;
             room.Label = r.Label;
             room.Version = nextVersion;
@@ -89,14 +99,15 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
         var wallIds = keptWalls.Select(w => w.Id).ToHashSet();
         var newOpenings = cmd.Openings.Select(o =>
         {
-            if (!wallIds.Contains(o.WallId))
+            var wallId = wallIdMap.GetValueOrDefault(o.WallId, o.WallId);
+            if (!wallIds.Contains(wallId))
                 throw new GeometryValidationException($"Opening references unknown wall {o.WallId}");
             if (!Enum.TryParse<OpeningType>(o.Type, ignoreCase: true, out var type))
                 throw new GeometryValidationException($"Unknown opening type '{o.Type}'");
             return new Opening
             {
                 ProjectId = project.Id,
-                WallId = o.WallId,
+                WallId = wallId,
                 Type = type,
                 Position = Factory.CreatePoint(new Coordinate(o.Position.X, o.Position.Y)),
                 WidthMeters = o.WidthMeters,
@@ -125,6 +136,26 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
             throw new GeometryConflictException();
         }
         return nextVersion;
+    }
+
+    // Requested ids that are not this project's but already exist in the table (i.e. belong to another project).
+    private static async Task<HashSet<Guid>> TakenElsewhereAsync<T>(
+        IQueryable<T> table, IEnumerable<Guid?> requested, IEnumerable<Guid> ownIds, CancellationToken ct) where T : class
+    {
+        var own = ownIds.ToHashSet();
+        var candidates = requested.OfType<Guid>().Where(id => !own.Contains(id)).Distinct().ToList();
+        if (candidates.Count == 0) return new HashSet<Guid>();
+        var ids = await table.Select(e => EF.Property<Guid>(e, "Id")).Where(id => candidates.Contains(id)).ToListAsync(ct);
+        return ids.ToHashSet();
+    }
+
+    private static Guid FreshOrRequested(Guid? requested, HashSet<Guid> takenElsewhere, IEnumerable<Guid> ownIds, HashSet<Guid> used)
+    {
+        if (requested is Guid id && !takenElsewhere.Contains(id) && !ownIds.Contains(id) && used.Add(id))
+            return id;
+        var fresh = Guid.NewGuid();
+        used.Add(fresh);
+        return fresh;
     }
 
     private static Polygon BuildRoomPolygon(List<PointDto> points)

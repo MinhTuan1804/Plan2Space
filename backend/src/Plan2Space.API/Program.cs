@@ -6,6 +6,8 @@ using Plan2Space.API.WebSockets;
 using Plan2Space.Application.Ai;
 using Plan2Space.Application.Auth;
 using Plan2Space.Application.Common;
+using Plan2Space.Application.Copilot;
+using Plan2Space.Infrastructure.Copilot;
 using Plan2Space.Application.Files;
 using Plan2Space.Infrastructure.Auth;
 using Plan2Space.Infrastructure.Messaging;
@@ -39,6 +41,12 @@ builder.Services.AddSingleton<IFileStorage>(_ => new MinioFileStorage(
     config["Minio:AccessKey"] ?? throw new InvalidOperationException("Minio:AccessKey missing"),
     config["Minio:SecretKey"] ?? throw new InvalidOperationException("Minio:SecretKey missing")));
 builder.Services.AddSingleton<JobProgressHub>();
+builder.Services.AddHttpClient<ICopilotIntentClient, CopilotIntentHttpClient>(c =>
+{
+    c.BaseAddress = new Uri((config["Ai:InternalUrl"] ?? "http://ai:8000").TrimEnd('/') + "/");
+    c.DefaultRequestHeaders.Add("X-Internal-Token", config["Internal:ServiceToken"] ?? "");
+    c.Timeout = TimeSpan.FromSeconds(30);   // LLM round-trip
+});
 
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Plan2Space.Application.Auth.Commands.RegisterUserCommand).Assembly));

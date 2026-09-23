@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from api.routers import health
+from api.routers import copilot, health
 
 app = FastAPI(title="Plan2Space AI Service")
 app.include_router(health.router)
+app.include_router(copilot.router)
