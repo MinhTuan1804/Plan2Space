@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Stage, Layer, Line } from 'react-konva'
 import { WallLayer } from './WallLayer'
+import { RoomLayer } from './RoomLayer'
 import { OpeningLayer } from './OpeningLayer'
 import { fitView } from './canvasTransform'
 import { useGeometryStore } from '../../../stores/geometryStore'
@@ -142,6 +143,7 @@ export function CanvasEditor() {
         }}
       >
         <Layer>
+          <RoomLayer />
           <WallLayer />
           <OpeningLayer />
         </Layer>

@@ -17,7 +17,8 @@ def _closest_point_on_segment(p, a, b) -> tuple[list[float], float]:
     return closest, math.hypot(px - closest[0], py - closest[1])
 
 
-def serialize_pipeline_result(walls: list[dict], symbols: list[dict], default_opening_width_m: float = 0.9) -> dict:
+def serialize_pipeline_result(walls: list[dict], symbols: list[dict], rooms: list[dict] | None = None,
+                              default_opening_width_m: float = 0.9) -> dict:
     """Builds the geometry API's save body (Task 5 WallInput/RoomInput/OpeningInput, camelCase).
 
     Walls and symbols must already be in project-space metres. Each wall gets a fresh id so
@@ -49,4 +50,10 @@ def serialize_pipeline_result(walls: list[dict], symbols: list[dict], default_op
             "sillHeightMeters": 0.0 if symbol["type"] == "door" else WINDOW_SILL_HEIGHT_M,
         })
 
-    return {"walls": walls_out, "rooms": [], "openings": openings_out}
+    rooms_out = [{
+        "id": str(uuid.uuid4()),
+        "points": [{"x": float(x), "y": float(y)} for x, y in r["points"]],
+        "label": r["label"],
+    } for r in rooms or []]
+
+    return {"walls": walls_out, "rooms": rooms_out, "openings": openings_out}
