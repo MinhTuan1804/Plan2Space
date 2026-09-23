@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGeometryStore } from '../../stores/geometryStore'
+import { runVectorization } from '../../services/aiJobService'
 import {
   ArrowLeft,
   Save,
@@ -13,8 +14,11 @@ import {
   Sparkles,
   MousePointer,
   Square,
-  DoorOpen
+  DoorOpen,
+  Upload
 } from 'lucide-react'
+
+const ACCEPTED_PLAN_TYPES = '.dxf,.png,.jpg,.jpeg,.pdf'
 
 export function StudioToolbar({ projectId }: { projectId: string }) {
   const saveToServer = useGeometryStore((s) => s.saveToServer)
@@ -26,6 +30,25 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
 
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
+  const [importProgress, setImportProgress] = useState<number | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+
+  // Upload a plan → AI vectorization → the worker writes geometry server-side → reload it here.
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setImportError(null)
+    setImportProgress(0)
+    try {
+      await runVectorization(projectId, file, (_status, pct) => setImportProgress(pct))
+      await loadFromServer(projectId)
+    } catch (err: any) {
+      setImportError(err?.response?.data?.message || err?.message || 'AI import failed')
+    } finally {
+      setImportProgress(null)
+    }
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -92,8 +115,31 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
         </button>
       </div>
 
-      {/* Right: Save & Conflict Alert */}
+      {/* Right: Import, Save & Conflict Alert */}
       <div className="flex items-center gap-3">
+        {importError && (
+          <div role="alert" className="max-w-xs truncate text-xs text-red-400" title={importError}>
+            {importError}
+          </div>
+        )}
+
+        <label
+          className={`flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium transition ${
+            importProgress !== null ? 'cursor-wait opacity-60' : 'cursor-pointer text-zinc-200 hover:bg-zinc-800'
+          }`}
+        >
+          <Upload className="w-3.5 h-3.5" />
+          <span>{importProgress !== null ? `AI ${importProgress}%` : 'Import plan'}</span>
+          <input
+            type="file"
+            accept={ACCEPTED_PLAN_TYPES}
+            className="sr-only"
+            aria-label="Import plan"
+            disabled={importProgress !== null}
+            onChange={handleImport}
+          />
+        </label>
+
         {saveConflict && (
           <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-950/40 border border-amber-800/60 px-3 py-1 rounded-lg">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
