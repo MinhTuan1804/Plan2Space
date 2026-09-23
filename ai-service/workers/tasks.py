@@ -20,7 +20,8 @@ from celery.exceptions import SoftTimeLimitExceeded
 logger = logging.getLogger(__name__)
 
 DXF_EXTENSIONS = (".dxf",)
-SNAP_TOLERANCE_M = 0.05
+SNAP_TOLERANCE_M = 0.05          # raster input: vectorization noise
+DXF_SNAP_TOLERANCE_M = 0.005     # CAD input is exact: stay within the ±5 mm spatial tolerance
 # Used when no dimension label can calibrate a raster plan (~1:100 drawing scanned at ~130 dpi).
 DEFAULT_METRES_PER_PIXEL = float(os.environ.get("P2S_DEFAULT_METRES_PER_PIXEL", "0.02"))
 # A job must never run forever (p95 target is 30 s): soft limit -> readable failure, hard limit -> killed.
@@ -53,14 +54,15 @@ def vectorize_job(job_id: str, project_id: str, file_object_key: str) -> dict:
 
         progress = 30
         report_progress(job_id, "Running", progress)
-        if local_path.lower().endswith(DXF_EXTENSIONS):
+        is_dxf = local_path.lower().endswith(DXF_EXTENSIONS)
+        if is_dxf:
             walls, symbols = parse_dxf(local_path)["walls"], []
         else:
             walls, symbols = _raster_to_project_space(local_path)
 
         progress = 60
         report_progress(job_id, "Running", progress)
-        healed_walls = heal_wall_topology(walls, snap_tolerance_m=SNAP_TOLERANCE_M)
+        healed_walls = heal_wall_topology(walls, snap_tolerance_m=DXF_SNAP_TOLERANCE_M if is_dxf else SNAP_TOLERANCE_M)
 
         progress = 80
         report_progress(job_id, "Running", progress)

@@ -71,3 +71,13 @@ def test_pipeline_error_marks_job_failed_and_pushes_nothing():
     assert "SKETCH" in result["error"]
     assert mock_error.call_args[0][0] == "job-4" and "SKETCH" in mock_error.call_args[0][1]
     mock_push.assert_not_called()
+
+def test_dxf_walls_are_healed_within_the_drawing_tolerance():
+    # Global constraint: ±5 mm — exact CAD input must not be snapped by centimetres.
+    celery_app.conf.task_always_eager = True
+    with patch("workers.tasks.download_from_minio", return_value="tests/fixtures/sample_house_plan.dxf"), \
+         patch("workers.tasks.report_progress"), patch("workers.tasks.report_final_state"), \
+         patch("workers.tasks.heal_wall_topology", side_effect=lambda walls, snap_tolerance_m: walls) as heal, \
+         patch("workers.tasks.push_geometry_to_api"):
+        vectorize_job.delay(job_id="j", project_id="p", file_object_key="k.dxf").get()
+    assert heal.call_args.kwargs["snap_tolerance_m"] <= 0.005
