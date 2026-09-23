@@ -8,6 +8,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectDto[]>([])
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
 
@@ -15,8 +16,9 @@ export default function DashboardPage() {
     try {
       const data = await listProjects()
       setProjects(data || [])
+      setLoadError(null)
     } catch {
-      setProjects([])
+      setLoadError('Could not load projects. Check your connection and try again.')
     }
   }
 
@@ -109,15 +111,21 @@ export default function DashboardPage() {
           </form>
         </div>
 
+        {loadError && (
+          <div role="alert" className="mb-6 rounded-lg border border-red-900/50 bg-red-950/30 px-4 py-3 text-xs text-red-400">
+            {loadError}
+          </div>
+        )}
+
         {/* Projects Grid */}
-        {projects.length === 0 ? (
+        {loadError ? null : projects.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-800 p-12 text-center bg-[#121215]/30">
             <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-500 flex items-center justify-center mx-auto mb-3">
               <Building2 className="w-6 h-6 stroke-[1.5]" />
             </div>
             <h3 className="text-sm font-medium text-zinc-300">No projects yet</h3>
             <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
-              Create a new project above to upload DXF, DWG, or raster floorplans for 3D vectorization.
+              Create a new project above to upload DXF, PNG/JPG or PDF floorplans for 3D vectorization.
             </p>
           </div>
         ) : (
@@ -132,9 +140,6 @@ export default function DashboardPage() {
                     <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 text-blue-400 flex items-center justify-center shrink-0">
                       <FolderGit2 className="w-4 h-4" />
                     </div>
-                    <span className="text-[11px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800/60">
-                      v1.0
-                    </span>
                   </div>
 
                   <Link
