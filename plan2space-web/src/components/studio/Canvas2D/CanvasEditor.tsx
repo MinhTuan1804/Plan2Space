@@ -2,13 +2,34 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Stage, Layer, Line } from 'react-konva'
 import { WallLayer } from './WallLayer'
 import { OpeningLayer } from './OpeningLayer'
+import { fitView } from './canvasTransform'
+import { useGeometryStore } from '../../../stores/geometryStore'
 import { ZoomIn, ZoomOut, RotateCcw, Crosshair } from 'lucide-react'
 
 export function CanvasEditor() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 600, height: 600 })
   const [stageScale, setStageScale] = useState(1)
-  const [stagePos, setStagePos] = useState({ x: 100, y: 100 })
+  const [stagePos, setStagePos] = useState({ x: 80, y: 520 })
+  const walls = useGeometryStore((s) => s.walls)
+  const hasFitted = useRef(false)
+
+  function applyFit() {
+    const view = fitView(useGeometryStore.getState().walls, dimensions)
+    setStageScale(view.scale)
+    setStagePos({ x: view.x, y: view.y })
+  }
+
+  // Frame the plan when geometry first appears (project load / AI import); keep the user's view afterwards.
+  useEffect(() => {
+    if (walls.length === 0) {
+      hasFitted.current = false
+    } else if (!hasFitted.current) {
+      hasFitted.current = true
+      applyFit()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walls.length, dimensions.width, dimensions.height])
 
   useEffect(() => {
     function updateDimensions() {
@@ -54,8 +75,7 @@ export function CanvasEditor() {
   }
 
   function handleResetView() {
-    setStageScale(1)
-    setStagePos({ x: 80, y: 80 })
+    applyFit()
   }
 
   return (
