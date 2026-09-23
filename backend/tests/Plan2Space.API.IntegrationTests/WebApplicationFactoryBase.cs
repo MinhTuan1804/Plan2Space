@@ -4,39 +4,86 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Plan2Space.Infrastructure.Persistence;
+using StackExchange.Redis;
+using Testcontainers.Minio;
 using Testcontainers.PostgreSql;
+using Testcontainers.RabbitMq;
+using Testcontainers.Redis;
 using Xunit;
 
-// One PostGIS container per test class; reused by every *.API.IntegrationTests file.
+// Backing containers (PostGIS, Redis, RabbitMQ, MinIO) are started once per test run and shared by
+// every test class; each class still gets its own in-memory API host. Reused by every
+// *.API.IntegrationTests file.
 public class Plan2SpaceWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string JwtSecret = "integration_test_secret_at_least_32_chars!";
+    public const string RabbitUser = "p2s";
+    public const string RabbitPass = "p2s";
+    private const string MinioUser = "p2s_minio";
+    private const string MinioPass = "p2s_minio_secret";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
+    private static readonly SemaphoreSlim InitLock = new(1, 1);
+    private static bool _initialized;
+
+    private static readonly PostgreSqlContainer Postgres = new PostgreSqlBuilder()
         .WithImage("postgis/postgis:16-3.4-alpine")
-        .WithDatabase("p2s_it")
-        .WithUsername("p2s")
-        .WithPassword("p2s")
+        .WithDatabase("p2s_it").WithUsername("p2s").WithPassword("p2s")
         .Build();
 
-    public string ConnectionString => _postgres.GetConnectionString();
+    private static readonly RedisContainer Redis = new RedisBuilder().WithImage("redis:7.2-alpine").Build();
+
+    private static readonly RabbitMqContainer Rabbit = new RabbitMqBuilder()
+        .WithImage("rabbitmq:3.13-management-alpine")
+        .WithUsername(RabbitUser).WithPassword(RabbitPass)
+        .Build();
+
+    private static readonly MinioContainer Minio = new MinioBuilder()
+        .WithImage("quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z")
+        .WithUsername(MinioUser).WithPassword(MinioPass)
+        .Build();
+
+    public string ConnectionString => Postgres.GetConnectionString();
+    public string RedisConnectionString => Redis.GetConnectionString();
+    public int RabbitPort => Rabbit.GetMappedPublicPort(5672);
+    public string RabbitHost => Rabbit.Hostname;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
         builder.UseSetting("Jwt:Secret", JwtSecret);
+        builder.UseSetting("Redis:ConnectionString", RedisConnectionString);
+        builder.UseSetting("RabbitMq:Host", RabbitHost);
+        builder.UseSetting("RabbitMq:Port", RabbitPort.ToString());
+        builder.UseSetting("RabbitMq:User", RabbitUser);
+        builder.UseSetting("RabbitMq:Pass", RabbitPass);
+        builder.UseSetting("Minio:Endpoint", $"{Minio.Hostname}:{Minio.GetMappedPublicPort(9000)}");
+        builder.UseSetting("Minio:AccessKey", MinioUser);
+        builder.UseSetting("Minio:SecretKey", MinioPass);
     }
 
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
-        using var scope = Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<Plan2SpaceDbContext>().Database.MigrateAsync();
+        await InitLock.WaitAsync();
+        try
+        {
+            if (_initialized) return;
+            await Task.WhenAll(Postgres.StartAsync(), Redis.StartAsync(), Rabbit.StartAsync(), Minio.StartAsync());
+            using var scope = Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<Plan2SpaceDbContext>().Database.MigrateAsync();
+            _initialized = true;
+        }
+        finally { InitLock.Release(); }
     }
 
-    public new async Task DisposeAsync()
+    // Simulates a Celery worker (Task 9): persist current state, then publish the live update.
+    public async Task SetJobProgressInRedisAsync(Guid jobId, string status, int percent)
     {
-        await base.DisposeAsync();
-        await _postgres.DisposeAsync();
+        await using var redis = await ConnectionMultiplexer.ConnectAsync(RedisConnectionString);
+        var value = $"{status}|{percent}";
+        await redis.GetDatabase().StringSetAsync($"job:{jobId}:progress", value);
+        await redis.GetSubscriber().PublishAsync(RedisChannel.Literal($"job:{jobId}:updates"), value);
     }
+
+    // Containers are shared across classes and reaped by Testcontainers' resource reaper at process exit.
+    public new Task DisposeAsync() => base.DisposeAsync().AsTask();
 }

@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes: [ "pgdata:/var/lib/postgresql/data" ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]   # TCP: the init-phase server is socket-only
       interval: 5s
       timeout: 5s
       retries: 10
@@ -45,7 +45,9 @@ services:
     networks: [ p2s_public ]
 
   api:
-    build: ./backend/src/Plan2Space.API
+    build:
+      context: ./backend
+      dockerfile: src/Plan2Space.API/Dockerfile
     environment:
       ConnectionStrings__Default: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Redis__ConnectionString: ${REDIS_URL}
@@ -53,6 +55,9 @@ services:
       RabbitMq__User: ${RABBITMQ_DEFAULT_USER}
       RabbitMq__Pass: ${RABBITMQ_DEFAULT_PASS}
       Minio__Endpoint: minio:9000
+      Minio__AccessKey: ${MINIO_ROOT_USER}
+      Minio__SecretKey: ${MINIO_ROOT_PASSWORD}
+      Database__MigrateOnStartup: "true"
       Ai__InternalUrl: ${AI_INTERNAL_URL}
       Jwt__Secret: ${JWT_SECRET}
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}

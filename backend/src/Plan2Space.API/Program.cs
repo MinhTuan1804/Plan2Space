@@ -2,20 +2,43 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Plan2Space.API.WebSockets;
+using Plan2Space.Application.Ai;
 using Plan2Space.Application.Auth;
 using Plan2Space.Application.Common;
+using Plan2Space.Application.Files;
 using Plan2Space.Infrastructure.Auth;
+using Plan2Space.Infrastructure.Messaging;
 using Plan2Space.Infrastructure.Persistence;
+using Plan2Space.Infrastructure.Storage;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
+var config = builder.Configuration;
 
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("Jwt:Secret missing");
+var jwtSecret = config["Jwt:Secret"] ?? throw new InvalidOperationException("Jwt:Secret missing");
 
 builder.Services.AddDbContext<Plan2SpaceDbContext>(o =>
-    o.UseNpgsql(builder.Configuration.GetConnectionString("Default"), npg => npg.UseNetTopologySuite()));
+    o.UseNpgsql(config.GetConnectionString("Default"), npg => npg.UseNetTopologySuite()));
 builder.Services.AddScoped<IPlan2SpaceDbContext>(sp => sp.GetRequiredService<Plan2SpaceDbContext>());
 
 builder.Services.AddSingleton<IJwtTokenService>(new JwtTokenService(jwtSecret));
+
+// Redis / RabbitMQ / MinIO clients connect lazily on first use, so the API boots even if one is still starting.
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(
+    RedisJobProgressSubscriber.ToConfigurationString(config["Redis:ConnectionString"] ?? "localhost:6379")));
+builder.Services.AddSingleton<RedisJobProgressSubscriber>();
+builder.Services.AddSingleton<IJobProgressReader>(sp => sp.GetRequiredService<RedisJobProgressSubscriber>());
+builder.Services.AddSingleton<IJobPublisher>(_ => new RabbitMqJobPublisher(
+    config["RabbitMq:Host"] ?? "localhost",
+    int.TryParse(config["RabbitMq:Port"], out var rabbitPort) ? rabbitPort : 5672,
+    config["RabbitMq:User"] ?? "guest",
+    config["RabbitMq:Pass"] ?? "guest"));
+builder.Services.AddSingleton<IFileStorage>(_ => new MinioFileStorage(
+    config["Minio:Endpoint"] ?? "localhost:9000",
+    config["Minio:AccessKey"] ?? throw new InvalidOperationException("Minio:AccessKey missing"),
+    config["Minio:SecretKey"] ?? throw new InvalidOperationException("Minio:SecretKey missing")));
+builder.Services.AddSingleton<JobProgressHub>();
 
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Plan2Space.Application.Auth.Commands.RegisterUserCommand).Assembly));
@@ -32,14 +55,34 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = false,
             RoleClaimType = "role"
         };
+        // Browsers cannot send an Authorization header on a WebSocket handshake.
+        o.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                if (ctx.Request.Path.StartsWithSegments("/ws") && ctx.Request.Query.TryGetValue("access_token", out var t))
+                    ctx.Token = t;
+                return Task.CompletedTask;
+            }
+        };
     });
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+if (config.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<Plan2SpaceDbContext>().Database.MigrateAsync();
+}
+
+app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.Map("/ws/job/{jobId:guid}", (HttpContext ctx, Guid jobId, JobProgressHub hub) => hub.HandleAsync(ctx, jobId))
+    .RequireAuthorization();
 app.Run();
 
 public partial class Program { }  // exposed for WebApplicationFactory<Program> in tests
