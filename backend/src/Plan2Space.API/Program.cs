@@ -10,6 +10,8 @@ using Plan2Space.Application.Copilot;
 using Plan2Space.Infrastructure.Copilot;
 using Plan2Space.Application.Staging;
 using Plan2Space.Infrastructure.Staging;
+using Plan2Space.Application.Export;
+using Plan2Space.Infrastructure.Export;
 using Plan2Space.Application.Files;
 using Plan2Space.Infrastructure.Auth;
 using Plan2Space.Infrastructure.Messaging;
@@ -52,6 +54,7 @@ void ConfigureAiClient(HttpClient c)
 }
 builder.Services.AddHttpClient<ICopilotIntentClient, CopilotIntentHttpClient>(ConfigureAiClient);
 builder.Services.AddHttpClient<IStagingClient, StagingHttpClient>(ConfigureAiClient);
+builder.Services.AddHttpClient<IAiExportClient, AiExportClient>(ConfigureAiClient);
 
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Plan2Space.Application.Auth.Commands.RegisterUserCommand).Assembly));

@@ -1,5 +1,6 @@
 // backend/tests/Plan2Space.API.IntegrationTests/WebApplicationFactoryBase.cs
 using Microsoft.AspNetCore.Hosting;
+using Minio;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -84,6 +85,23 @@ public class Plan2SpaceWebApplicationFactory : WebApplicationFactory<Program>, I
         var value = $"{status}|{percent}";
         await redis.GetDatabase().StringSetAsync($"job:{jobId}:progress", value);
         await redis.GetSubscriber().PublishAsync(RedisChannel.Literal($"job:{jobId}:updates"), value);
+    }
+
+    // Reads an object back from the test MinIO (bucket used by MinioFileStorage); null if it doesn't exist.
+    public async Task<byte[]?> TryReadStoredObjectAsync(string objectKey)
+    {
+        var client = new Minio.MinioClient()
+            .WithEndpoint($"{Minio.Hostname}:{Minio.GetMappedPublicPort(9000)}")
+            .WithCredentials(MinioUser, MinioPass).WithSSL(false).Build();
+        using var buffer = new MemoryStream();
+        try
+        {
+            await client.GetObjectAsync(new Minio.DataModel.Args.GetObjectArgs()
+                .WithBucket(Plan2Space.Infrastructure.Storage.MinioFileStorage.Bucket).WithObject(objectKey)
+                .WithCallbackStream(s => s.CopyTo(buffer)));
+        }
+        catch (Minio.Exceptions.MinioException) { return null; }
+        return buffer.ToArray();
     }
 
     // Simulates a worker reporting why a job failed (Task 12's report_error).
