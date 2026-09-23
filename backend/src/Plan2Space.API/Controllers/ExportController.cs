@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Plan2Space.API.Middleware;
 using Plan2Space.Application.Export;
 using Plan2Space.Application.Export.Commands;
 
@@ -16,6 +18,7 @@ public class ExportController : ControllerBase
     private Guid CurrentUserId => Guid.Parse(User.FindFirst("sub")!.Value);
 
     [HttpPost("{projectId:guid}")]
+    [EnableRateLimiting(RateLimitPolicies.AiTriggering)]
     public async Task<IActionResult> Export(Guid projectId, [FromQuery] string format, CancellationToken ct)
     {
         format = (format ?? "").ToLowerInvariant();

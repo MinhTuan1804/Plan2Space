@@ -71,6 +71,11 @@ export default function DashboardPage() {
               <span className="font-mono">{user.email}</span>
             </div>
           )}
+          {user?.role === 'Admin' && (
+            <Link to="/admin" className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/80 transition">
+              Admin
+            </Link>
+          )}
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/80 transition"

@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Plan2Space.API.Middleware;
 using Plan2Space.Application.Copilot;
 using Plan2Space.Application.Copilot.Commands;
 using Plan2Space.Application.Geometry.Commands;
@@ -19,6 +21,7 @@ public class CopilotController : ControllerBase
     public record MessageRequest(Guid ProjectId, string Message);
 
     [HttpPost("message")]
+    [EnableRateLimiting(RateLimitPolicies.AiTriggering)]
     public async Task<IActionResult> Message(MessageRequest req)
     {
         try

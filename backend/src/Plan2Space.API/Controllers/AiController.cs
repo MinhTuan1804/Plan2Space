@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Plan2Space.API.Middleware;
 using Plan2Space.Application.Ai.Commands;
 using Plan2Space.Application.Ai.Queries;
 
@@ -18,6 +20,7 @@ public class AiController : ControllerBase
     public record VectorizeRequest(Guid ProjectId, Guid FileId);
 
     [HttpPost("vectorize")]
+    [EnableRateLimiting(RateLimitPolicies.AiJobs)]
     public async Task<IActionResult> Vectorize(VectorizeRequest req)
     {
         try

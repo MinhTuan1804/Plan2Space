@@ -61,6 +61,9 @@ services:
       Ai__InternalUrl: ${AI_INTERNAL_URL}
       Jwt__Secret: ${JWT_SECRET}
       Internal__ServiceToken: ${P2S_INTERNAL_TOKEN}
+      # First admin account (created/promoted at startup when set); see .env.example
+      Admin__Email: ${P2S_ADMIN_EMAIL:-}
+      Admin__Password: ${P2S_ADMIN_PASSWORD:-}
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
     depends_on:
       postgres: { condition: service_healthy }

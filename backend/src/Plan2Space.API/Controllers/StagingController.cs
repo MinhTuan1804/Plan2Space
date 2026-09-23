@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Plan2Space.API.Middleware;
 using Plan2Space.Application.Staging;
 
 namespace Plan2Space.API.Controllers;
@@ -15,6 +17,7 @@ public class StagingController : ControllerBase
     public record SuggestRequest(List<List<double>> RoomPolygon, string RoomLabel);
 
     [HttpPost("suggest")]
+    [EnableRateLimiting(RateLimitPolicies.AiTriggering)]
     public async Task<IActionResult> Suggest(SuggestRequest req, CancellationToken ct)
     {
         if (req.RoomPolygon is null || req.RoomPolygon.Count < 3 || req.RoomPolygon.Any(p => p is null || p.Count != 2 || p.Any(v => !double.IsFinite(v))))

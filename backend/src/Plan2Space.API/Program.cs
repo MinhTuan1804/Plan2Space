@@ -1,4 +1,8 @@
+using System.Net;
 using System.Text;
+using Microsoft.AspNetCore.HttpOverrides;
+using Plan2Space.API.Middleware;
+using Plan2Space.API.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -84,6 +88,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+builder.Services.AddPlan2SpaceRateLimiting(config);
+
+// Behind nginx: take the client address from X-Forwarded-For, trusting only proxies on private networks.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Clear();
+    foreach (var cidr in new[] { "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8" })
+    {
+        var parts = cidr.Split('/');
+        o.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse(parts[0]), int.Parse(parts[1])));
+    }
+});
 
 var app = builder.Build();
 
@@ -92,9 +110,12 @@ if (config.GetValue<bool>("Database:MigrateOnStartup"))
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<Plan2SpaceDbContext>().Database.MigrateAsync();
 }
+await AdminBootstrap.EnsureAdminAsync(app.Services, config);
 
+app.UseForwardedHeaders();
 app.UseWebSockets();
 app.UseAuthentication();
+app.UseRateLimiter();   // after authentication: limits are partitioned by user id
 app.UseAuthorization();
 app.MapControllers();
 app.Map("/ws/job/{jobId:guid}", (HttpContext ctx, Guid jobId, JobProgressHub hub) => hub.HandleAsync(ctx, jobId))

@@ -62,6 +62,11 @@ public class Plan2SpaceWebApplicationFactory : WebApplicationFactory<Program>, I
         builder.UseSetting("Minio:Endpoint", $"{Minio.Hostname}:{Minio.GetMappedPublicPort(9000)}");
         builder.UseSetting("Minio:AccessKey", MinioUser);
         builder.UseSetting("Minio:SecretKey", MinioPass);
+        // Many tests share one host and one client IP; RateLimitingTests re-applies the spec's limits.
+        builder.UseSetting("RateLimiting:PerUserPerMinute", "100000");
+        builder.UseSetting("RateLimiting:AiJobsPerHour", "100000");
+        builder.UseSetting("RateLimiting:AiCallsPerMinute", "100000");
+        builder.UseSetting("RateLimiting:AuthPerMinute", "100000");
     }
 
     public async Task InitializeAsync()

@@ -1,11 +1,14 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Plan2Space.API.Middleware;
 using Plan2Space.Application.Auth.Commands;
 
 namespace Plan2Space.API.Controllers;
 
 [ApiController]
 [Route("api/auth")]
+[EnableRateLimiting(RateLimitPolicies.Auth)]
 public class AuthController : ControllerBase
 {
     private readonly IMediator _mediator;
