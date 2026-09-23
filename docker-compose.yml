@@ -16,7 +16,7 @@ services:
 
   redis:
     image: redis:7.2-alpine
-    networks: [ p2s_public ]
+    networks: [ p2s_public, p2s_internal ]   # workers publish job progress here
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -42,7 +42,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-    networks: [ p2s_public ]
+    networks: [ p2s_public, p2s_internal ]   # workers download source files from here
 
   api:
     build:
@@ -70,6 +70,7 @@ services:
 
   ai:
     build: ./ai-service
+    image: plan2space-ai
     environment:
       REDIS_URL: ${REDIS_URL}
       RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//"
@@ -80,6 +81,7 @@ services:
 
   celery_worker:
     build: ./ai-service
+    image: plan2space-ai   # same image as `ai`, different command
     command: celery -A workers.celery_app worker --concurrency=4 --loglevel=info
     environment:
       REDIS_URL: ${REDIS_URL}
