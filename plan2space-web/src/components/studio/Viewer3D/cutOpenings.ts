@@ -5,7 +5,7 @@ import { Wall, Opening, Point } from '../../../services/geometryService'
 const evaluator = new Evaluator()
 
 // Direction of the wall segment closest to the opening (a polyline wall has several).
-function segmentAngleAt(wall: Wall, p: Point): number {
+export function segmentAngleAt(wall: Wall, p: Point): number {
   let best = { distance: Infinity, angle: 0 }
   for (let i = 0; i < wall.points.length - 1; i++) {
     const a = wall.points[i]

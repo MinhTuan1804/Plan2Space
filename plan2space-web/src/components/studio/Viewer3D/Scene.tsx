@@ -2,23 +2,10 @@ import React, { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Center } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
-import { useWallGeometry } from './useWallGeometry'
-import { Wall, Opening } from '../../../services/geometryService'
+import { HouseModel } from './HouseModel'
 import { Eye } from 'lucide-react'
 
-function WallMesh({ wall, openings }: { wall: Wall; openings: Opening[] }) {
-  const geometry = useWallGeometry(wall, openings)
-  return (
-    <mesh geometry={geometry} castShadow receiveShadow>
-      <meshStandardMaterial color="#e4e4e7" roughness={0.4} metalness={0.05} />
-    </mesh>
-  )
-}
-
 export function Scene() {
-  const walls = useGeometryStore((s) => s.walls)
-  const openings = useGeometryStore((s) => s.openings)
-
   return (
     <div className="w-full h-full relative bg-[#09090b]">
       {/* 3D Viewport HUD overlay */}
@@ -38,18 +25,12 @@ export function Scene() {
       </div>
 
       <Canvas
+        shadows
         camera={{ position: [12, 12, 12], fov: 45 }}
         gl={{ antialias: true, alpha: true }}
       >
-        <ambientLight intensity={0.7} />
-        <directionalLight
-          position={[15, 25, 15]}
-          intensity={1.2}
-          castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
-        />
-        <directionalLight position={[-10, 10, -10]} intensity={0.3} />
+        <hemisphereLight args={['#fdfbf5', '#8a7a66', 0.8]} />
+        <directionalLight position={[15, 25, 10]} intensity={1.1} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} />
 
         <OrbitControls
           makeDefault
@@ -74,9 +55,7 @@ export function Scene() {
 
         {/* Group with orientation converting 2D plan XY to 3D XZ */}
         <group rotation={[-Math.PI / 2, 0, 0]}>
-          {walls.map((wall) => (
-            <WallMesh key={wall.id} wall={wall} openings={openings} />
-          ))}
+          <HouseModel showCeilings={false} />
         </group>
       </Canvas>
     </div>
