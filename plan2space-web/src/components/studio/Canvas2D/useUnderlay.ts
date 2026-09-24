@@ -16,8 +16,8 @@ export function useUnderlay(): { underlay: Underlay; image: HTMLImageElement } |
     if (!projectId) return
     let cancelled = false
     fetchUnderlay(projectId)
-      .then((u) => { if (!cancelled) setUnderlay(u) })
-      .catch(() => { if (!cancelled) setUnderlay(null) })   // no underlay is never an error
+      .then((u) => { if (!cancelled) { setUnderlay(u); useEditorStore.getState().setUnderlayMeta(u) } })
+      .catch(() => { if (!cancelled) { setUnderlay(null); useEditorStore.getState().setUnderlayMeta(null) } })   // no underlay is never an error
     return () => { cancelled = true }
   }, [projectId, version, revision])
 

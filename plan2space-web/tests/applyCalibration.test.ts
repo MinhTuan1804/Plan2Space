@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { applyCalibration } from '../src/components/studio/Canvas2D/applyCalibration'
+import { applyCalibration, retryUnderlayScale } from '../src/components/studio/Canvas2D/applyCalibration'
 import { useGeometryStore } from '../src/stores/geometryStore'
 import { useEditorStore } from '../src/stores/editorStore'
 import * as geometryService from '../src/services/geometryService'
@@ -48,5 +48,53 @@ describe('applying a calibration', () => {
 
     expect(error).toMatch(/changed/i)
     expect(underlayService.setUnderlayScale).not.toHaveBeenCalled()
+  })
+})
+
+describe('calibration failure paths (review findings)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.mocked(geometryService.saveGeometry).mockReset().mockResolvedValue({ version: 2 })
+    vi.mocked(underlayService.setUnderlayScale).mockReset().mockResolvedValue()
+    useEditorStore.setState({ underlayRevision: 0, pendingUnderlayMpp: null })
+    useGeometryStore.setState({
+      projectId: 'p', version: 1, dirty: false, wallsEdited: false, roomsRefreshFailed: false, saveConflict: false,
+      walls: [{ id: 'w1', points: [{ x: 0, y: 0 }, { x: 34, y: 0 }], thicknessMeters: 0.2, heightMeters: 2.8, version: 1 }],
+      rooms: [], openings: [],
+    })
+  })
+
+  it('a second Apply while the first is in flight scales nothing more', async () => {
+    const first = applyCalibration(0.5, 0.08)
+    const second = await applyCalibration(0.5, 0.08)
+    await first
+    expect(second).toMatch(/already/i)
+    expect(useGeometryStore.getState().walls[0].points[1].x).toBeCloseTo(17)
+    expect(geometryService.saveGeometry).toHaveBeenCalledTimes(1)
+  })
+
+  it('a failed save puts the plan back the way it was', async () => {
+    vi.mocked(geometryService.saveGeometry).mockRejectedValue({ response: { status: 422, data: { message: 'overlap' } } })
+    const error = await applyCalibration(0.5, 0.08)
+    expect(error).toBeTruthy()
+    expect(useGeometryStore.getState().walls[0].points[1].x).toBe(34)
+    expect(useGeometryStore.getState().dirty).toBe(false)
+  })
+
+  it('a conflicting save puts the plan back the way it was', async () => {
+    vi.mocked(geometryService.saveGeometry).mockRejectedValue({ response: { status: 409 } })
+    await applyCalibration(0.5, 0.08)
+    expect(useGeometryStore.getState().walls[0].points[1].x).toBe(34)
+  })
+
+  it('when the image cannot be realigned, the correction is kept so it can be retried', async () => {
+    vi.mocked(underlayService.setUnderlayScale).mockRejectedValueOnce(new Error('503'))
+    const error = await applyCalibration(0.5, 0.08)
+    expect(error).toMatch(/retry/i)
+    expect(useEditorStore.getState().pendingUnderlayMpp).toBeCloseTo(0.04)
+
+    expect(await retryUnderlayScale()).toBeNull()
+    expect(vi.mocked(underlayService.setUnderlayScale).mock.calls[1]).toEqual(['p', expect.closeTo(0.04, 6)])
+    expect(useEditorStore.getState().pendingUnderlayMpp).toBeNull()
   })
 })

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Stage, Layer, Line, Text } from 'react-konva'
 import { useMeasureTool } from './useMeasureTool'
 import { CalibrationDialog } from './CalibrationDialog'
-import { applyCalibration } from './applyCalibration'
+import { applyCalibration, retryUnderlayScale } from './applyCalibration'
 import { WallLayer } from './WallLayer'
 import { RoomLayer } from './RoomLayer'
 import { OpeningLayer } from './OpeningLayer'
@@ -25,6 +25,7 @@ export function CanvasEditor() {
   const wallTool = useWallTool()
   const measureTool = useMeasureTool()
   const [calibrationError, setCalibrationError] = useState<string | null>(null)
+  const pendingUnderlayMpp = useEditorStore((s) => s.pendingUnderlayMpp)
   const openingTool = useOpeningTool()
   const underlay = useUnderlay()
   const underlayVisible = useEditorStore((s) => s.underlayVisible)
@@ -241,7 +242,8 @@ export function CanvasEditor() {
           measuredM={measureTool.measuredM}
           onApply={async (realM) => {
             const factor = realM / measureTool.measuredM!
-            const error = await applyCalibration(factor, underlay?.underlay.metresPerPixel ?? null)
+            // The mapping, not the decoded image: the correction must not depend on the image having loaded.
+            const error = await applyCalibration(factor, useEditorStore.getState().underlayMeta?.metresPerPixel ?? null)
             measureTool.reset()
             if (error) setCalibrationError(error)
             else useEditorStore.getState().setTool('select')
@@ -250,8 +252,12 @@ export function CanvasEditor() {
         />
       )}
       {calibrationError && (
-        <div role="alert" className="absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded bg-amber-950/90 px-3 py-2 text-xs text-amber-300">
-          {calibrationError}
+        <div role="alert" className="absolute left-1/2 top-16 z-20 -translate-x-1/2 flex items-center gap-2 rounded bg-amber-950/90 px-3 py-2 text-xs text-amber-300">
+          <span>{calibrationError}</span>
+          {pendingUnderlayMpp !== null && (
+            <button className="rounded bg-amber-700 px-2 py-0.5 text-white"
+                    onClick={async () => setCalibrationError(await retryUnderlayScale())}>Retry</button>
+          )}
         </div>
       )}
     </div>

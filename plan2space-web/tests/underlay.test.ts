@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { underlayRect } from '../src/components/studio/Canvas2D/canvasTransform'
 import { useUnderlay } from '../src/components/studio/Canvas2D/useUnderlay'
 import { useGeometryStore } from '../src/stores/geometryStore'
+import { useEditorStore } from '../src/stores/editorStore'
 import * as underlayService from '../src/services/underlayService'
 
 vi.mock('../src/services/underlayService')
@@ -46,5 +47,14 @@ describe('useUnderlay', () => {
     const { result } = renderHook(() => useUnderlay())
     await waitFor(() => expect(underlayService.fetchUnderlay).toHaveBeenCalled())
     expect(result.current).toBeNull()
+  })
+
+  it('the mapping is known before the image has loaded, so a calibration can correct it', async () => {
+    // Review finding: the scale correction was skipped while the image was still downloading or decoding.
+    useEditorStore.setState({ underlayMeta: null })
+    vi.mocked(underlayService.fetchFileObjectUrl).mockReturnValue(new Promise(() => {}))   // never loads
+    vi.mocked(underlayService.fetchUnderlay).mockResolvedValue({ fileId: 'f1', metresPerPixel: 0.02, widthPx: 300, heightPx: 200 })
+    renderHook(() => useUnderlay())
+    await waitFor(() => expect(useEditorStore.getState().underlayMeta?.metresPerPixel).toBe(0.02))
   })
 })

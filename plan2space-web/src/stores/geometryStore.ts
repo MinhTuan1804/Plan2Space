@@ -2,6 +2,15 @@ import { create } from 'zustand'
 import { deriveRooms, fetchGeometry, saveGeometry, GeometryDto, Wall, Room, Opening, Point } from '../services/geometryService'
 import { alongClamped, DEFAULT_WALL_HEIGHT_M, DEFAULT_WALL_THICKNESS_M, distanceAlong, newId } from '../lib/planGeometry'
 
+// What a calibration puts back if its save fails: the plan and whether it had unsaved edits.
+export interface PlanSnapshot {
+  walls: Wall[]
+  rooms: Room[]
+  openings: Opening[]
+  dirty: boolean
+  wallsEdited: boolean
+}
+
 export interface GeometryState {
   projectId: string | null
   walls: Wall[]
@@ -23,6 +32,8 @@ export interface GeometryState {
   updateOpening: (openingId: string, patch: Partial<Pick<Opening, 'position' | 'widthMeters' | 'type'>>) => void
   deleteOpening: (openingId: string) => void
   scalePlan: (factor: number) => void
+  snapshotPlan: () => PlanSnapshot
+  restorePlan: (snapshot: PlanSnapshot) => void
   // Walls changed since the last save, so the rooms must be derived again before saving.
   wallsEdited: boolean
   // The last save could not re-derive rooms and kept the previous ones.
@@ -173,6 +184,25 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
     deleteOpening: (openingId) => {
       set((state) => ({ openings: state.openings.filter((o) => o.id !== openingId) }))
       markEdited()
+    },
+
+    snapshotPlan: () => {
+      const { walls, rooms, openings, dirty, wallsEdited } = get()
+      return { walls, rooms, openings, dirty, wallsEdited }
+    },
+
+    restorePlan: (snapshot) => {
+      editSeq++
+      set({ walls: snapshot.walls, rooms: snapshot.rooms, openings: snapshot.openings,
+            dirty: snapshot.dirty, wallsEdited: snapshot.wallsEdited })
+      const { projectId, version } = get()
+      // The draft mirrors the restored plan: unsaved edits keep theirs, a clean plan has none.
+      if (snapshot.dirty) {
+        writeDraft(projectId, { version, walls: snapshot.walls, rooms: snapshot.rooms,
+                                openings: snapshot.openings, wallsEdited: snapshot.wallsEdited })
+      } else {
+        clearDraft(projectId)
+      }
     },
 
     scalePlan: (factor) => {

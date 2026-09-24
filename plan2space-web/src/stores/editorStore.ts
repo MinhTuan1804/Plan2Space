@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { Underlay } from '../services/underlayService'
 
 export type Tool = 'select' | 'wall' | 'opening' | 'measure'
 export type Selection = { kind: 'wall' | 'opening'; id: string } | null
@@ -24,6 +25,12 @@ interface EditorState {
   // The full-screen walk-through is open; it owns the keyboard.
   walking: boolean
   setWalking: (walking: boolean) => void
+  // A saved calibration whose image scale could not be sent yet; retried from the editor.
+  pendingUnderlayMpp: number | null
+  setPendingUnderlayMpp: (mpp: number | null) => void
+  // The latest import's pixel-to-metre mapping, known as soon as it is fetched (before the image loads).
+  underlayMeta: Underlay | null
+  setUnderlayMeta: (underlay: Underlay | null) => void
 }
 
 // How the user is editing, as opposed to what the plan contains (geometryStore).
@@ -44,4 +51,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   bumpUnderlay: () => set((s) => ({ underlayRevision: s.underlayRevision + 1 })),
   walking: false,
   setWalking: (walking) => set({ walking }),
+  pendingUnderlayMpp: null,
+  setPendingUnderlayMpp: (pendingUnderlayMpp) => set({ pendingUnderlayMpp }),
+  underlayMeta: null,
+  setUnderlayMeta: (underlayMeta) => set({ underlayMeta }),
 }))
