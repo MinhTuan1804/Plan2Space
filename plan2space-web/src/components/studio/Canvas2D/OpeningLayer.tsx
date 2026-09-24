@@ -1,6 +1,7 @@
 import React from 'react'
 import { Rect } from 'react-konva'
 import { useGeometryStore } from '../../../stores/geometryStore'
+import { useEditorStore } from '../../../stores/editorStore'
 import { Opening, Wall } from '../../../services/geometryService'
 import { PIXELS_PER_METER, toScreen } from './canvasTransform'
 
@@ -29,6 +30,9 @@ function screenAngleDeg(opening: Opening, walls: Wall[]): number {
 export function OpeningLayer() {
   const openings = useGeometryStore((s) => s.openings)
   const walls = useGeometryStore((s) => s.walls)
+  const tool = useEditorStore((s) => s.tool)
+  const selection = useEditorStore((s) => s.selection)
+  const select = useEditorStore((s) => s.select)
 
   return (
     <>
@@ -46,6 +50,11 @@ export function OpeningLayer() {
             offsetY={SYMBOL_DEPTH_PX / 2}
             rotation={screenAngleDeg(o, walls)}
             fill={o.type === 'Door' ? '#f59e0b' : '#38bdf8'}
+            listening={tool === 'select'}
+            onClick={() => select({ kind: 'opening', id: o.id })}
+            onTap={() => select({ kind: 'opening', id: o.id })}
+            stroke={selection?.kind === 'opening' && selection.id === o.id ? '#ffffff' : undefined}
+            strokeWidth={2}
           />
         )
       })}

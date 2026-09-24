@@ -154,6 +154,7 @@ export function CanvasEditor() {
           const p = planPointer(e)
           if (p && tool === 'wall') wallTool.onPointerDown(p)
           else if (p && tool === 'opening') openingTool.onPointerDown(p)
+          else if (tool === 'select' && e.target === e.target.getStage()) useEditorStore.getState().select(null)
         }}
         onMouseMove={(e) => {
           const p = planPointer(e)

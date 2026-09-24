@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Tool, useEditorStore } from '../stores/editorStore'
+import { useGeometryStore } from '../stores/geometryStore'
 
 const TOOL_KEYS: Record<string, Tool> = { v: 'select', w: 'wall', o: 'opening' }
 
@@ -15,6 +16,15 @@ export function useEditorShortcuts() {
       if (isTypingTarget(e.target) || e.ctrlKey || e.metaKey || e.altKey) return
       if (e.key === 'Escape') {
         useEditorStore.getState().setTool('select')
+        return
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const { selection, select } = useEditorStore.getState()
+        if (!selection) return
+        e.preventDefault()
+        if (selection.kind === 'wall') useGeometryStore.getState().deleteWall(selection.id)
+        else useGeometryStore.getState().deleteOpening(selection.id)
+        select(null)
         return
       }
       const tool = TOOL_KEYS[e.key.toLowerCase()]
