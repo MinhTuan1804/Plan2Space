@@ -32,6 +32,7 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
   const openings = useGeometryStore((s) => s.openings)
   const dirty = useGeometryStore((s) => s.dirty)
   const draftDiscarded = useGeometryStore((s) => s.draftDiscarded)
+  const roomsRefreshFailed = useGeometryStore((s) => s.roomsRefreshFailed)
 
   const tool = useEditorStore((s) => s.tool)
   const setTool = useEditorStore((s) => s.setTool)
@@ -196,6 +197,11 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
 
       {/* Right: Import, Save & Conflict Alert */}
       <div className="flex items-center gap-3">
+        {roomsRefreshFailed && (
+          <span role="status" className="text-[11px] text-amber-400">
+            Saved, but rooms could not be recalculated. They will be retried on the next save.
+          </span>
+        )}
         {draftDiscarded && (
           <div role="status" className="max-w-xs truncate text-xs text-amber-400"
                title="Unsaved edits from an earlier session were discarded because the plan was changed since.">

@@ -42,6 +42,12 @@ export async function fetchGeometry(projectId: string): Promise<GeometryDto> {
   return data
 }
 
+// Rooms are derived from the wall graph by the same code the import uses (ai-service, via the API).
+export async function deriveRooms(walls: Wall[]): Promise<{ points: Point[]; label: string }[]> {
+  const { data } = await apiClient.post('/rooms/derive', { walls: walls.map((w) => ({ points: w.points })) })
+  return data.rooms
+}
+
 export async function saveGeometry(
   projectId: string,
   baseVersion: number,

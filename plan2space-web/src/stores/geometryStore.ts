@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { fetchGeometry, saveGeometry, GeometryDto, Wall, Room, Opening, Point } from '../services/geometryService'
+import { deriveRooms, fetchGeometry, saveGeometry, GeometryDto, Wall, Room, Opening, Point } from '../services/geometryService'
 import { alongClamped, DEFAULT_WALL_HEIGHT_M, DEFAULT_WALL_THICKNESS_M, distanceAlong, newId } from '../lib/planGeometry'
 
 export interface GeometryState {
@@ -169,7 +169,19 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
     },
 
     saveToServer: async (projectId) => {
-      const { walls, rooms, openings, version } = get()
+      let rooms = get().rooms
+      let roomsRefreshFailed = false
+      if (get().wallsEdited) {
+        try {
+          const derived = await deriveRooms(get().walls)
+          if (!Array.isArray(derived)) throw new Error('No rooms returned')
+          rooms = derived.map((r) => ({ id: newId(), points: r.points, label: r.label, version: 0 }))
+        } catch {
+          // The walls still save; the previous rooms stay until a later save derives them again.
+          roomsRefreshFailed = true
+        }
+      }
+      const { walls, openings, version } = get()
       try {
         const result = await saveGeometry(projectId, version, {
           walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters })),
@@ -177,7 +189,8 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
           openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters }))
         })
         clearDraft(projectId)
-        set({ version: result.version, saveConflict: false, dirty: false })
+        set({ rooms, version: result.version, saveConflict: false, dirty: false,
+              wallsEdited: roomsRefreshFailed, roomsRefreshFailed })
       } catch (err: any) {
         if (err?.response?.status === 409) {
           set({ saveConflict: true })
