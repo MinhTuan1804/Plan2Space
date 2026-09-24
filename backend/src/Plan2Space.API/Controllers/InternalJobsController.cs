@@ -17,7 +17,9 @@ public class InternalJobsController : ControllerBase
     private readonly IPlan2SpaceDbContext _db;
     public InternalJobsController(IPlan2SpaceDbContext db) => _db = db;
 
-    public record JobStateRequest(string Status, int ProgressPercent, string? Error);
+    private const int MaxResultChars = 4000;
+
+    public record JobStateRequest(string Status, int ProgressPercent, string? Error, string? Result);
 
     [HttpPut]
     public async Task<IActionResult> Put(Guid jobId, JobStateRequest req, CancellationToken ct)
@@ -32,6 +34,8 @@ public class InternalJobsController : ControllerBase
         job.ErrorMessage = req.Error?[..Math.Min(req.Error.Length, 1000)];
         if (status is AiJobStatus.Completed or AiJobStatus.Failed)
             job.CompletedAt = DateTimeOffset.UtcNow;
+        if (req.Result is { Length: > 0 and <= MaxResultChars })
+            job.ResultJson = req.Result;
         await _db.SaveChangesAsync(ct);
         return NoContent();
     }
