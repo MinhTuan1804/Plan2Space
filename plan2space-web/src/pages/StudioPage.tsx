@@ -6,12 +6,14 @@ import { Scene } from '../components/studio/Viewer3D/Scene'
 import { StudioToolbar } from '../components/studio/StudioToolbar'
 import { CopilotChat } from '../components/studio/Copilot/CopilotChat'
 import { useUnsavedChangesWarning } from '../hooks/useUnsavedChangesWarning'
+import { useEditorShortcuts } from '../hooks/useEditorShortcuts'
 
 export default function StudioPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const loadFromServer = useGeometryStore((s) => s.loadFromServer)
   const dirty = useGeometryStore((s) => s.dirty)
   useUnsavedChangesWarning(dirty)
+  useEditorShortcuts()
 
   useEffect(() => {
     if (projectId) {

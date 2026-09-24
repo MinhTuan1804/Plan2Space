@@ -5,6 +5,7 @@ import { RoomLayer } from './RoomLayer'
 import { OpeningLayer } from './OpeningLayer'
 import { fitView } from './canvasTransform'
 import { useGeometryStore } from '../../../stores/geometryStore'
+import { useEditorStore } from '../../../stores/editorStore'
 import { ZoomIn, ZoomOut, RotateCcw, Crosshair } from 'lucide-react'
 
 export function CanvasEditor() {
@@ -13,6 +14,7 @@ export function CanvasEditor() {
   const [stageScale, setStageScale] = useState(1)
   const [stagePos, setStagePos] = useState({ x: 80, y: 520 })
   const walls = useGeometryStore((s) => s.walls)
+  const tool = useEditorStore((s) => s.tool)
   const hasFitted = useRef(false)
 
   function applyFit() {
@@ -134,7 +136,8 @@ export function CanvasEditor() {
         scaleY={stageScale}
         x={stagePos.x}
         y={stagePos.y}
-        draggable
+        // A drag with the wall tool draws a wall; only the select tool pans.
+        draggable={tool === 'select'}
         onWheel={handleWheel}
         onDragEnd={(e) => {
           if (e.target === e.target.getStage()) {

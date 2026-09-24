@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGeometryStore } from '../../stores/geometryStore'
+import { Tool, useEditorStore } from '../../stores/editorStore'
 import { runVectorization } from '../../services/aiJobService'
 import { downloadExport, EXPORT_OPTIONS, ExportFormat } from '../../services/exportService'
 import {
@@ -31,6 +32,11 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
   const openings = useGeometryStore((s) => s.openings)
   const dirty = useGeometryStore((s) => s.dirty)
   const draftDiscarded = useGeometryStore((s) => s.draftDiscarded)
+
+  const tool = useEditorStore((s) => s.tool)
+  const setTool = useEditorStore((s) => s.setTool)
+  const toolClass = (t: Tool) =>
+    `flex items-center gap-1 px-2.5 py-1 rounded font-medium transition ${tool === t ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`
 
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
@@ -131,21 +137,27 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
       {/* Center: CAD Tool Mode Buttons */}
       <div className="hidden sm:flex items-center gap-1 bg-zinc-900 p-1 rounded-lg border border-zinc-800 text-xs">
         <button
-          className="flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-800 text-white font-medium shadow-sm"
+          className={toolClass('select')}
+          onClick={() => setTool('select')}
+          aria-pressed={tool === 'select'}
           title="Select & Move (V)"
         >
           <MousePointer className="w-3.5 h-3.5" />
           <span>Select</span>
         </button>
         <button
-          className="flex items-center gap-1 px-2.5 py-1 rounded text-zinc-400 hover:text-zinc-200 transition"
+          className={toolClass('wall')}
+          onClick={() => setTool('wall')}
+          aria-pressed={tool === 'wall'}
           title="Wall Tool (W)"
         >
           <Square className="w-3.5 h-3.5" />
           <span>Wall</span>
         </button>
         <button
-          className="flex items-center gap-1 px-2.5 py-1 rounded text-zinc-400 hover:text-zinc-200 transition"
+          className={toolClass('opening')}
+          onClick={() => setTool('opening')}
+          aria-pressed={tool === 'opening'}
           title="Opening Tool (O)"
         >
           <DoorOpen className="w-3.5 h-3.5" />
