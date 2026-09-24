@@ -8,7 +8,9 @@ import { useWallTool } from './useWallTool'
 import { useOpeningTool } from './useOpeningTool'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
-import { ZoomIn, ZoomOut, RotateCcw, Crosshair } from 'lucide-react'
+import { ZoomIn, ZoomOut, RotateCcw, Crosshair, Image as ImageIcon } from 'lucide-react'
+import { useUnderlay } from './useUnderlay'
+import { UnderlayLayer } from './UnderlayLayer'
 
 export function CanvasEditor() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -19,6 +21,11 @@ export function CanvasEditor() {
   const tool = useEditorStore((s) => s.tool)
   const wallTool = useWallTool()
   const openingTool = useOpeningTool()
+  const underlay = useUnderlay()
+  const underlayVisible = useEditorStore((s) => s.underlayVisible)
+  const underlayOpacity = useEditorStore((s) => s.underlayOpacity)
+  const setUnderlayVisible = useEditorStore((s) => s.setUnderlayVisible)
+  const setUnderlayOpacity = useEditorStore((s) => s.setUnderlayOpacity)
   // A tool change (including Escape) abandons a wall in progress.
   useEffect(() => { wallTool.cancel() }, [tool])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -131,6 +138,27 @@ export function CanvasEditor() {
         <span className="text-[11px] font-mono text-zinc-400 px-1.5">
           {Math.round(stageScale * 100)}%
         </span>
+        {underlay && (
+          <>
+            <div className="h-4 w-px bg-zinc-800 mx-0.5" />
+            <button
+              onClick={() => setUnderlayVisible(!underlayVisible)}
+              aria-pressed={underlayVisible}
+              className={`p-1.5 rounded hover:bg-zinc-800 transition ${underlayVisible ? 'text-blue-400' : 'text-zinc-400'}`}
+              title="Show the imported image under the plan"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </button>
+            <input
+              type="range" min={0.1} max={1} step={0.05}
+              value={underlayOpacity}
+              onChange={(e) => setUnderlayOpacity(parseFloat(e.target.value))}
+              aria-label="Image opacity"
+              className="w-20"
+              disabled={!underlayVisible}
+            />
+          </>
+        )}
       </div>
 
       <div className="absolute bottom-4 left-4 z-10 pointer-events-none flex items-center gap-2 text-[11px] font-mono text-zinc-400 bg-zinc-950/80 px-2 py-1 rounded border border-zinc-800/80">
@@ -171,6 +199,9 @@ export function CanvasEditor() {
         }}
       >
         <Layer>
+          {underlay && underlayVisible && (
+            <UnderlayLayer underlay={underlay.underlay} image={underlay.image} opacity={underlayOpacity} />
+          )}
           <RoomLayer />
           <WallLayer />
           <OpeningLayer />

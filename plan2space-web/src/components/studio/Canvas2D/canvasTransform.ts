@@ -1,10 +1,22 @@
 import { Point, Wall } from '../../../services/geometryService'
+import { Underlay } from '../../../services/underlayService'
 
 export const PIXELS_PER_METER = 50
 
 // Project space is y-up (metres); Konva screen space is y-down (pixels).
 export function toScreen(p: Point): Point {
   return { x: p.x * PIXELS_PER_METER, y: -p.y * PIXELS_PER_METER }
+}
+
+// The worker mapped pixel (px, py) to metres (px·mpp, (H − py)·mpp): the image's top-left corner is plan (0, H·mpp).
+export function underlayRect(u: Underlay): { x: number; y: number; width: number; height: number } {
+  const topLeft = toScreen({ x: 0, y: u.heightPx * u.metresPerPixel })
+  return {
+    x: topLeft.x,
+    y: topLeft.y,
+    width: u.widthPx * u.metresPerPixel * PIXELS_PER_METER,
+    height: u.heightPx * u.metresPerPixel * PIXELS_PER_METER,
+  }
 }
 
 export function screenToPlan(p: Point): Point {
