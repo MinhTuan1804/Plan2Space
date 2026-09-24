@@ -7,6 +7,10 @@ export function toScreen(p: Point): Point {
   return { x: p.x * PIXELS_PER_METER, y: -p.y * PIXELS_PER_METER }
 }
 
+export function screenToPlan(p: Point): Point {
+  return { x: p.x / PIXELS_PER_METER, y: -p.y / PIXELS_PER_METER }
+}
+
 export function screenDeltaToPlan(dx: number, dy: number): Point {
   return { x: dx / PIXELS_PER_METER, y: -dy / PIXELS_PER_METER }
 }

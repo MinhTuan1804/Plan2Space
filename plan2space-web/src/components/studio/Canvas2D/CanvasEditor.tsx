@@ -3,7 +3,8 @@ import { Stage, Layer, Line } from 'react-konva'
 import { WallLayer } from './WallLayer'
 import { RoomLayer } from './RoomLayer'
 import { OpeningLayer } from './OpeningLayer'
-import { fitView } from './canvasTransform'
+import { fitView, screenToPlan, toScreen } from './canvasTransform'
+import { useWallTool } from './useWallTool'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { ZoomIn, ZoomOut, RotateCcw, Crosshair } from 'lucide-react'
@@ -15,6 +16,14 @@ export function CanvasEditor() {
   const [stagePos, setStagePos] = useState({ x: 80, y: 520 })
   const walls = useGeometryStore((s) => s.walls)
   const tool = useEditorStore((s) => s.tool)
+  const wallTool = useWallTool()
+  // A tool change (including Escape) abandons a wall in progress.
+  useEffect(() => { wallTool.cancel() }, [tool])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  function planPointer(e: any) {
+    const pos = e.target.getStage()?.getRelativePointerPosition()
+    return pos ? screenToPlan(pos) : null
+  }
   const hasFitted = useRef(false)
 
   function applyFit() {
@@ -126,7 +135,7 @@ export function CanvasEditor() {
         <Crosshair className="w-3 h-3 text-blue-500" />
         <span>1m = 50px</span>
         <span>·</span>
-        <span>Drag walls to move</span>
+        <span>{tool === 'wall' ? 'Drag to draw a wall · Esc to cancel' : tool === 'opening' ? 'Click a wall to place an opening' : 'Drag walls to move'}</span>
       </div>
 
       <Stage
@@ -139,6 +148,18 @@ export function CanvasEditor() {
         // A drag with the wall tool draws a wall; only the select tool pans.
         draggable={tool === 'select'}
         onWheel={handleWheel}
+        onMouseDown={(e) => {
+          const p = planPointer(e)
+          if (p && tool === 'wall') wallTool.onPointerDown(p)
+        }}
+        onMouseMove={(e) => {
+          const p = planPointer(e)
+          if (p && tool === 'wall') wallTool.onPointerMove(p)
+        }}
+        onMouseUp={(e) => {
+          const p = planPointer(e)
+          if (p && tool === 'wall') wallTool.onPointerUp(p)
+        }}
         onDragEnd={(e) => {
           if (e.target === e.target.getStage()) {
             setStagePos({ x: e.target.x(), y: e.target.y() })
@@ -149,6 +170,16 @@ export function CanvasEditor() {
           <RoomLayer />
           <WallLayer />
           <OpeningLayer />
+          {wallTool.preview && (
+            <Line
+              points={wallTool.preview.flatMap((p) => { const s = toScreen(p); return [s.x, s.y] })}
+              stroke="#60a5fa"
+              strokeWidth={0.2 * 50}
+              dash={[12, 6]}
+              opacity={0.7}
+              listening={false}
+            />
+          )}
         </Layer>
       </Stage>
     </div>

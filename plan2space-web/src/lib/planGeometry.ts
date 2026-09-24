@@ -65,6 +65,13 @@ export function nearestOnWalls(p: Point, walls: Wall[]): { wallId: string; point
   return best
 }
 
+export const MIN_WALL_LENGTH_M = 0.1
+
+// A press and release closer than this is a click, not a wall.
+export function wallFromDrag(start: Point, end: Point): Point[] | null {
+  return Math.hypot(end.x - start.x, end.y - start.y) < MIN_WALL_LENGTH_M ? null : [start, end]
+}
+
 // An opening keeps its distance from the wall's first point, clamped so it stays inside the wall.
 export function alongClamped(points: Point[], along: number, widthM: number): Point {
   const length = polylineLength(points)
