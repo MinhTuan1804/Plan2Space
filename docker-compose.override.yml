@@ -1,0 +1,11 @@
+services:
+  postgres:
+    ports: [ "5433:5432" ]   # host 5432 is taken by a native Postgres on the dev machine
+  rabbitmq:
+    ports: [ "15672:15672" ]
+  minio:
+    ports: [ "9000:9000", "9001:9001" ]
+  api:
+    ports: [ "5000:5000" ]
+  ai:
+    ports: [ "8000:8000" ]   # dev-only escape hatch; removed in prod compose
