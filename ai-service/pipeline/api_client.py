@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import tempfile
@@ -28,13 +29,17 @@ def report_error(job_id: str, message: str) -> None:
     _redis_client.set(f"job:{job_id}:error", message[:1000])
 
 
-def report_final_state(job_id: str, status: str, percent: int, error: str | None = None) -> None:
+def report_final_state(job_id: str, status: str, percent: int, error: str | None = None,
+                       result: dict | None = None) -> None:
     """Persists the job's final state in the API database (AiJobs row), so it survives a Redis restart.
     Best effort: a reporting failure is logged and never fails the job itself."""
+    body = {"status": status, "progressPercent": percent, "error": error}
+    if result is not None:
+        body["result"] = json.dumps(result)
     try:
         with _http() as client:
             client.put(f"/internal/ai/jobs/{job_id}/state", headers={"X-Internal-Token": INTERNAL_TOKEN},
-                       json={"status": status, "progressPercent": percent, "error": error}).raise_for_status()
+                       json=body).raise_for_status()
     except httpx.HTTPError:
         logger.exception("Could not persist final state of job %s", job_id)
 
