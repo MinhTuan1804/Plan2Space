@@ -13,6 +13,8 @@ export function isTypingTarget(target: EventTarget | null): boolean {
 export function useEditorShortcuts() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // The walk-through owns the keyboard: W moves the player, it must not switch tools or delete walls.
+      if (useEditorStore.getState().walking) return
       if (isTypingTarget(e.target) || e.ctrlKey || e.metaKey || e.altKey) return
       if (e.key === 'Escape') {
         useEditorStore.getState().setTool('select')

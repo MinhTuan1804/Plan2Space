@@ -21,6 +21,9 @@ interface EditorState {
   // Bumped after the underlay's scale is corrected, so the image is fetched again with the new mapping.
   underlayRevision: number
   bumpUnderlay: () => void
+  // The full-screen walk-through is open; it owns the keyboard.
+  walking: boolean
+  setWalking: (walking: boolean) => void
 }
 
 // How the user is editing, as opposed to what the plan contains (geometryStore).
@@ -39,4 +42,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   setUnderlayOpacity: (opacity) => set({ underlayOpacity: clamp(opacity, 0.1, 1) }),
   underlayRevision: 0,
   bumpUnderlay: () => set((s) => ({ underlayRevision: s.underlayRevision + 1 })),
+  walking: false,
+  setWalking: (walking) => set({ walking }),
 }))

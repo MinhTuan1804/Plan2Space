@@ -7,6 +7,8 @@ import { StudioToolbar } from '../components/studio/StudioToolbar'
 import { CopilotChat } from '../components/studio/Copilot/CopilotChat'
 import { useUnsavedChangesWarning } from '../hooks/useUnsavedChangesWarning'
 import { useEditorShortcuts } from '../hooks/useEditorShortcuts'
+import { WalkMode } from '../components/studio/Walk/WalkMode'
+import { useEditorStore } from '../stores/editorStore'
 
 export default function StudioPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -14,6 +16,9 @@ export default function StudioPage() {
   const dirty = useGeometryStore((s) => s.dirty)
   useUnsavedChangesWarning(dirty)
   useEditorShortcuts()
+  const walking = useEditorStore((s) => s.walking)
+  // Leaving the studio closes the walk-through, so it does not reopen on the next project.
+  useEffect(() => () => useEditorStore.getState().setWalking(false), [])
 
   useEffect(() => {
     if (projectId) {
@@ -35,6 +40,7 @@ export default function StudioPage() {
         </div>
         <CopilotChat projectId={projectId} />
       </div>
+      {walking && <WalkMode />}
     </div>
   )
 }

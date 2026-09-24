@@ -2,10 +2,13 @@ import React, { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Center } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
+import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from './HouseModel'
-import { Eye } from 'lucide-react'
+import { Eye, Footprints } from 'lucide-react'
 
 export function Scene() {
+  const setWalking = useEditorStore((s) => s.setWalking)
+  const wallCount = useGeometryStore((s) => s.walls.length)
   return (
     <div className="w-full h-full relative bg-[#09090b]">
       {/* 3D Viewport HUD overlay */}
@@ -14,6 +17,15 @@ export function Scene() {
         <span>3D Perspective</span>
         <span>·</span>
         <span>60 FPS</span>
+        <button
+          onClick={() => setWalking(true)}
+          disabled={wallCount === 0}
+          title={wallCount === 0 ? 'Draw or import walls first' : 'Walk through the house'}
+          className="ml-2 flex items-center gap-1 rounded bg-blue-600 px-2 py-0.5 text-white disabled:bg-zinc-700 disabled:text-zinc-400"
+        >
+          <Footprints className="w-3.5 h-3.5" />
+          <span>Walk</span>
+        </button>
       </div>
 
       <div className="absolute bottom-4 right-4 z-10 pointer-events-none flex items-center gap-2 text-[11px] font-mono text-zinc-400 bg-zinc-950/80 px-2 py-1 rounded border border-zinc-800/80">
