@@ -1,3 +1,5 @@
+using Plan2Space.Application.Geometry;
+using Plan2Space.Infrastructure.Geometry;
 using System.Net;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -60,6 +62,7 @@ void ConfigureAiClient(HttpClient c)
 builder.Services.AddHttpClient<ICopilotIntentClient, CopilotIntentHttpClient>(ConfigureAiClient);
 builder.Services.AddHttpClient<IStagingClient, StagingHttpClient>(ConfigureAiClient);
 builder.Services.AddHttpClient<IAiExportClient, AiExportClient>(ConfigureAiClient);
+builder.Services.AddHttpClient<IRoomDerivationClient, RoomDerivationHttpClient>(ConfigureAiClient);
 
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Plan2Space.Application.Auth.Commands.RegisterUserCommand).Assembly));
