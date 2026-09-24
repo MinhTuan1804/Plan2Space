@@ -1,0 +1,2 @@
+# Shell scripts run on Linux in CI: a CRLF here breaks bash on the first line.
+*.sh text eol=lf
