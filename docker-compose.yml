@@ -89,6 +89,7 @@ services:
       API_INTERNAL_URL: http://api:5000
       P2S_INTERNAL_TOKEN: ${P2S_INTERNAL_TOKEN}
       # Co-pilot LLM (OpenAI-compatible; GPT-4o mini by default, COPILOT_BASE_URL/COPILOT_MODEL for e.g. Gemini Flash)
+      COPILOT_API_KEY: ${COPILOT_API_KEY:-}   # takes precedence, so a stale OPENAI_API_KEY in the shell cannot win
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       COPILOT_MODEL: ${COPILOT_MODEL:-gpt-4o-mini}
       COPILOT_BASE_URL: ${COPILOT_BASE_URL:-}
