@@ -5,6 +5,7 @@ import { RoomLayer } from './RoomLayer'
 import { OpeningLayer } from './OpeningLayer'
 import { fitView, screenToPlan, toScreen } from './canvasTransform'
 import { useWallTool } from './useWallTool'
+import { useOpeningTool } from './useOpeningTool'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { ZoomIn, ZoomOut, RotateCcw, Crosshair } from 'lucide-react'
@@ -17,6 +18,7 @@ export function CanvasEditor() {
   const walls = useGeometryStore((s) => s.walls)
   const tool = useEditorStore((s) => s.tool)
   const wallTool = useWallTool()
+  const openingTool = useOpeningTool()
   // A tool change (including Escape) abandons a wall in progress.
   useEffect(() => { wallTool.cancel() }, [tool])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -151,6 +153,7 @@ export function CanvasEditor() {
         onMouseDown={(e) => {
           const p = planPointer(e)
           if (p && tool === 'wall') wallTool.onPointerDown(p)
+          else if (p && tool === 'opening') openingTool.onPointerDown(p)
         }}
         onMouseMove={(e) => {
           const p = planPointer(e)

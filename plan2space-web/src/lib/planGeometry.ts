@@ -72,6 +72,17 @@ export function wallFromDrag(start: Point, end: Point): Point[] | null {
   return Math.hypot(end.x - start.x, end.y - start.y) < MIN_WALL_LENGTH_M ? null : [start, end]
 }
 
+// Further than this from any wall, a click is not meant for a wall: nothing is placed.
+export const OPENING_PICK_DISTANCE_M = 0.5
+
+export function placeOpening(p: Point, walls: Wall[], widthM: number): { wallId: string; position: Point } | null {
+  const hit = nearestOnWalls(p, walls)
+  if (!hit || hit.distance > OPENING_PICK_DISTANCE_M) return null
+  const wall = walls.find((w) => w.id === hit.wallId)!
+  if (polylineLength(wall.points) < widthM) return null
+  return { wallId: wall.id, position: alongClamped(wall.points, distanceAlong(wall.points, hit.point), widthM) }
+}
+
 // An opening keeps its distance from the wall's first point, clamped so it stays inside the wall.
 export function alongClamped(points: Point[], along: number, widthM: number): Point {
   const length = polylineLength(points)

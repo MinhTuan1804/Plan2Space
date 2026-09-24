@@ -35,6 +35,10 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
 
   const tool = useEditorStore((s) => s.tool)
   const setTool = useEditorStore((s) => s.setTool)
+  const openingType = useEditorStore((s) => s.openingType)
+  const openingWidthM = useEditorStore((s) => s.openingWidthM)
+  const setOpeningType = useEditorStore((s) => s.setOpeningType)
+  const setOpeningWidth = useEditorStore((s) => s.setOpeningWidth)
   const toolClass = (t: Tool) =>
     `flex items-center gap-1 px-2.5 py-1 rounded font-medium transition ${tool === t ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`
 
@@ -164,6 +168,31 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
           <span>Opening</span>
         </button>
       </div>
+
+      {tool === 'opening' && (
+        <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-300">
+          <select
+            aria-label="Opening type"
+            value={openingType}
+            onChange={(e) => setOpeningType(e.target.value as 'Door' | 'Window')}
+            className="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-1"
+          >
+            <option value="Door">Door</option>
+            <option value="Window">Window</option>
+          </select>
+          <label className="flex items-center gap-1">
+            <span>Width</span>
+            <input
+              aria-label="Opening width in metres"
+              type="number" min={0.4} max={3} step={0.1}
+              value={openingWidthM}
+              onChange={(e) => setOpeningWidth(parseFloat(e.target.value))}
+              className="w-16 bg-zinc-900 border border-zinc-800 rounded px-1.5 py-1"
+            />
+            <span>m</span>
+          </label>
+        </div>
+      )}
 
       {/* Right: Import, Save & Conflict Alert */}
       <div className="flex items-center gap-3">
