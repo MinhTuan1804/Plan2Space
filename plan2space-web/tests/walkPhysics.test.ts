@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { moveVector, spawnPoint, stepPlayer, wallBlockers, PLAYER_RADIUS_M, MAX_STEP_S } from '../src/lib/walkPhysics'
+import { moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers, PLAYER_RADIUS_M, MAX_STEP_S } from '../src/lib/walkPhysics'
+import { pointInPolygon } from '../src/lib/planGeometry'
 import { Opening, Room, Wall } from '../src/services/geometryService'
 
 const still = { forward: false, back: false, left: false, right: false, run: false }
@@ -70,5 +71,19 @@ describe('spawn', () => {
   it('without rooms starts in the middle of the walls, and at the origin with nothing at all', () => {
     expect(spawnPoint([], [wall('a', [0, 0], [8, 0]), wall('b', [8, 0], [8, 4])])).toEqual({ x: 4, y: 2 })
     expect(spawnPoint([], [])).toEqual({ x: 0, y: 0 })
+  })
+
+  it("an L-shaped room's spawn is inside that room, not in the corner it wraps around", () => {
+    // Review finding: an L's centroid can fall outside the L.
+    const l: Room = { id: 'L', label: 'L', version: 1, points: [
+      { x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 6 }, { x: 0, y: 6 }, { x: 0, y: 0 }] }
+    expect(pointInPolygon(spawnPoint([l], []), l.points)).toBe(true)
+  })
+
+  it('a spawn that lands inside a wall is moved out of it before the walk starts', () => {
+    // Review finding: the walls' centre often sits on a corridor wall.
+    const blockers = wallBlockers([wall('mid', [4, -5], [4, 5])], [])
+    const p = settleSpawn({ x: 4, y: 0 }, blockers)
+    expect(Math.abs(p.x - 4)).toBeGreaterThanOrEqual(0.1 + PLAYER_RADIUS_M - 1e-6)
   })
 })

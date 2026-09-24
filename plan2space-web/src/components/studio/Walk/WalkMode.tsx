@@ -5,7 +5,7 @@ import { PointerLockControls } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from '../Viewer3D/HouseModel'
-import { EYE_HEIGHT_M, MAX_STEP_S, moveVector, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
+import { EYE_HEIGHT_M, MAX_STEP_S, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
 import { useMovementKeys } from './useMovementKeys'
 
 // Plan (x, y) at height h is world (x, h, −y): the house group is rotated −90° about X.
@@ -14,7 +14,7 @@ function Player() {
   const rooms = useGeometryStore((s) => s.rooms)
   const openings = useGeometryStore((s) => s.openings)
   const blockers = useMemo(() => wallBlockers(walls, openings), [walls, openings])
-  const position = useRef(spawnPoint(rooms, walls))
+  const position = useRef(settleSpawn(spawnPoint(rooms, walls), blockers))
   const keys = useMovementKeys()
   const { camera } = useThree()
   const look = useMemo(() => new THREE.Vector3(), [])

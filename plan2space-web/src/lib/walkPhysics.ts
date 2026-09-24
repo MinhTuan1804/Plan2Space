@@ -1,5 +1,5 @@
 import { Opening, Point, Room, Wall } from '../services/geometryService'
-import { polygonArea, polygonCentroid } from './planGeometry'
+import { interiorPoint, polygonArea } from './planGeometry'
 
 export const WALK_SPEED_MS = 1.4
 export const RUN_SPEED_MS = 3
@@ -106,10 +106,15 @@ export function stepPlayer(position: Point, move: Point, blockers: Blocker[]): P
   return p
 }
 
+// The camera must not start inside a wall (the walls' centre often lies on a corridor wall).
+export function settleSpawn(p: Point, blockers: Blocker[]): Point {
+  return stepPlayer(p, { x: 0, y: 0 }, blockers)
+}
+
 export function spawnPoint(rooms: Room[], walls: Wall[]): Point {
   if (rooms.length > 0) {
     const largest = rooms.reduce((best, r) => (polygonArea(r.points) > polygonArea(best.points) ? r : best))
-    return polygonCentroid(largest.points)
+    return interiorPoint(largest.points)
   }
   const points = walls.flatMap((w) => w.points)
   if (points.length === 0) return { x: 0, y: 0 }

@@ -131,3 +131,37 @@ export function polygonCentroid(points: Point[]): Point {
   }
   return { x: cx / (3 * a), y: cy / (3 * a) }
 }
+
+// Ray casting; a closing duplicate point is harmless.
+export function pointInPolygon(p: Point, points: Point[]): boolean {
+  let inside = false
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const a = points[i]
+    const b = points[j]
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside
+  }
+  return inside
+}
+
+// A point well inside the polygon: its centroid when that is inside, otherwise the middle of the widest
+// span along the horizontal line through the centroid (an L's centroid can sit in the corner it wraps).
+export function interiorPoint(points: Point[]): Point {
+  const c = polygonCentroid(points)
+  if (pointInPolygon(c, points)) return c
+  const xs: number[] = []
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const a = points[i]
+    const b = points[j]
+    if ((a.y > c.y) !== (b.y > c.y)) xs.push(((b.x - a.x) * (c.y - a.y)) / (b.y - a.y) + a.x)
+  }
+  xs.sort((m, n) => m - n)
+  let best: Point | null = null
+  let widest = 0
+  for (let k = 0; k + 1 < xs.length; k += 2) {
+    if (xs[k + 1] - xs[k] > widest) {
+      widest = xs[k + 1] - xs[k]
+      best = { x: (xs[k] + xs[k + 1]) / 2, y: c.y }
+    }
+  }
+  return best ?? c
+}
