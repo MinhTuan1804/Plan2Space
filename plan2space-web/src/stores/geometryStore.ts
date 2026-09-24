@@ -34,6 +34,8 @@ interface Draft {
   walls: Wall[]
   rooms: Room[]
   openings: Opening[]
+  // Absent in drafts written before this field existed: treat those walls as edited.
+  wallsEdited?: boolean
 }
 
 // Unsaved edits survive a reload, a closed tab or a forced re-login (expired token).
@@ -75,10 +77,13 @@ function carryOpenings(openings: Opening[], before: Wall | undefined, after: Wal
 }
 
 export const useGeometryStore = create<GeometryState>((set, get) => {
+  // Bumped by every edit, so a save can tell whether the plan changed while it was in flight.
+  let editSeq = 0
   const markEdited = () => {
-    const { projectId, version, walls, rooms, openings } = get()
+    editSeq++
+    const { projectId, version, walls, rooms, openings, wallsEdited } = get()
     set({ dirty: true })
-    writeDraft(projectId, { version, walls, rooms, openings })
+    writeDraft(projectId, { version, walls, rooms, openings, wallsEdited })
   }
 
   return {
@@ -100,7 +105,8 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       if (draft && draft.version === version) {
         // Nobody saved since these edits were made: pick them back up.
         set({ projectId, walls: draft.walls, rooms: draft.rooms, openings: draft.openings, version,
-              saveConflict: false, dirty: true, draftDiscarded: false, wallsEdited: false, roomsRefreshFailed: false })
+              saveConflict: false, dirty: true, draftDiscarded: false, wallsEdited: draft.wallsEdited ?? true,
+              roomsRefreshFailed: false })
         return
       }
       clearDraft(projectId)
@@ -169,11 +175,15 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
     },
 
     saveToServer: async (projectId) => {
+      // Save exactly what the user saw when they pressed Save: edits made while the rooms are derived or
+      // the PUT is in flight are not in this save, so they must stay unsaved (dirty, with their draft).
+      const seq = editSeq
+      const { walls, openings, version, wallsEdited } = get()
       let rooms = get().rooms
       let roomsRefreshFailed = false
-      if (get().wallsEdited) {
+      if (wallsEdited) {
         try {
-          const derived = await deriveRooms(get().walls)
+          const derived = await deriveRooms(walls)
           if (!Array.isArray(derived)) throw new Error('No rooms returned')
           rooms = derived.map((r) => ({ id: newId(), points: r.points, label: r.label, version: 0 }))
         } catch {
@@ -181,16 +191,24 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
           roomsRefreshFailed = true
         }
       }
-      const { walls, openings, version } = get()
       try {
         const result = await saveGeometry(projectId, version, {
           walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters })),
           rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label })),
           openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters }))
         })
-        clearDraft(projectId)
-        set({ rooms, version: result.version, saveConflict: false, dirty: false,
-              wallsEdited: roomsRefreshFailed, roomsRefreshFailed })
+        if (editSeq === seq) {
+          clearDraft(projectId)
+          set({ rooms, version: result.version, saveConflict: false, dirty: false,
+                wallsEdited: roomsRefreshFailed, roomsRefreshFailed })
+          return
+        }
+        // The plan changed during the save: keep the newer edits on top of the saved version. The rooms
+        // were derived from the older walls, so the next save derives them again.
+        set({ version: result.version, saveConflict: false, dirty: true, wallsEdited: true, roomsRefreshFailed })
+        const current = get()
+        writeDraft(projectId, { version: result.version, walls: current.walls, rooms: current.rooms,
+                                openings: current.openings, wallsEdited: true })
       } catch (err: any) {
         if (err?.response?.status === 409) {
           set({ saveConflict: true })
