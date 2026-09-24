@@ -24,7 +24,11 @@ def rooms_from_walls(walls: list[dict]) -> list[dict]:
     # The bridges exist only for this polygonization; the saved walls keep their real gaps.
     lines += [LineString([u, v]) for u, v, _ in find_wall_gaps(walls)]
     faces = [p for p in polygonize(unary_union(lines))
-             if p.area >= MIN_ROOM_AREA_M2 and _min_width(p) >= MIN_ROOM_WIDTH_M]
+             if p.area >= MIN_ROOM_AREA_M2 and _min_width(p) >= MIN_ROOM_WIDTH_M
+             # A face with a hole is the space *around* free-standing rooms. A room outline is one
+             # ring, so keeping it would fill the hole, cover those rooms, and the geometry API
+             # would reject the entire plan for overlapping rooms.
+             and not p.interiors]
     faces.sort(key=lambda p: (round(p.centroid.y, 3), round(p.centroid.x, 3)))   # deterministic numbering
     # Same repair path as any room outline (closed, valid) before it reaches the geometry API.
     outlines = finalize_wall_geometry([list(p.exterior.coords) for p in faces], close_loops=True)
