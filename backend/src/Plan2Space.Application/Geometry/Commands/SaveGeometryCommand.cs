@@ -63,6 +63,9 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
         {
             if (w.Points.Count < 2)
                 throw new GeometryValidationException("A wall needs at least 2 points");
+            // !(x > 0) also rejects NaN.
+            if (!(w.ThicknessMeters > 0) || !(w.HeightMeters > 0))
+                throw new GeometryValidationException("A wall's thickness and height must be greater than zero");
             var line = new LineString(w.Points.Select(p => new Coordinate(p.X, p.Y)).ToArray());
             var wall = w.Id is Guid id && existingWalls.TryGetValue(id, out var found) && usedWallIds.Add(id)
                 ? found

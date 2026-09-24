@@ -22,6 +22,28 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
         new { x, y }, new { x = x + s, y }, new { x = x + s, y = y + s }, new { x, y = y + s }, new { x, y }
     };
 
+    [Theory]
+    [InlineData(0.0, 2.8)]
+    [InlineData(-0.2, 2.8)]
+    [InlineData(0.2, 0.0)]
+    [InlineData(0.2, -1.0)]
+    public async Task NonPositiveWallThicknessOrHeight_Returns400(double thickness, double height)
+    {
+        // Hand-drawn walls reach this path from the editor; a zero-thickness wall breaks the 3D extrusion.
+        var (client, project) = await AuthedProjectAsync($"geo-dims-{Guid.NewGuid():N}@plan2space.dev");
+
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0,
+            walls = new[] { new { points = new[] { new { x = 0.0, y = 0.0 }, new { x = 5.0, y = 0.0 } },
+                                  thicknessMeters = thickness, heightMeters = height } },
+            rooms = Array.Empty<object>(),
+            openings = Array.Empty<object>()
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
     [Fact]
     public async Task SaveGeometry_ThenStaleSave_Returns409()
     {
