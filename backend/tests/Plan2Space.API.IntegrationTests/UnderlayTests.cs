@@ -84,4 +84,59 @@ public class UnderlayTests : IClassFixture<Plan2SpaceWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/api/projects/{projectId}/underlay")).StatusCode);
     }
+
+    [Fact]
+    public async Task ACorrectedScale_ReplacesTheImportsMapping()
+    {
+        var (client, projectId) = await OwnerAsync("underlay-scale@plan2space.dev");
+        var (_, jobId) = await ImportAsync(client, projectId);
+        await Service().PutAsJsonAsync($"/internal/ai/jobs/{jobId}/state",
+            new { status = "Completed", progressPercent = 100, result = ImageResult });
+
+        var put = await client.PutAsJsonAsync($"/api/projects/{projectId}/underlay", new { metresPerPixel = 0.0152 });
+
+        Assert.Equal(HttpStatusCode.NoContent, put.StatusCode);
+        var body = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{projectId}/underlay");
+        Assert.Equal(0.0152, body.GetProperty("metresPerPixel").GetDouble());
+        Assert.Equal(300, body.GetProperty("widthPx").GetInt32());
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(-0.02)]
+    public async Task ANonPositiveScale_Returns400(double value)
+    {
+        var (client, projectId) = await OwnerAsync($"underlay-bad-scale-{Guid.NewGuid():N}@plan2space.dev");
+        var (_, jobId) = await ImportAsync(client, projectId);
+        await Service().PutAsJsonAsync($"/internal/ai/jobs/{jobId}/state",
+            new { status = "Completed", progressPercent = 100, result = ImageResult });
+
+        var put = await client.PutAsJsonAsync($"/api/projects/{projectId}/underlay", new { metresPerPixel = value });
+
+        Assert.Equal(HttpStatusCode.BadRequest, put.StatusCode);
+    }
+
+    [Fact]
+    public async Task ScalingAProjectWithoutAnUnderlay_Returns404()
+    {
+        var (client, projectId) = await OwnerAsync("underlay-scale-none@plan2space.dev");
+
+        var put = await client.PutAsJsonAsync($"/api/projects/{projectId}/underlay", new { metresPerPixel = 0.02 });
+
+        Assert.Equal(HttpStatusCode.NotFound, put.StatusCode);
+    }
+
+    [Fact]
+    public async Task ScalingSomeoneElsesUnderlay_Returns404()
+    {
+        var (owner, projectId) = await OwnerAsync("underlay-scale-owner@plan2space.dev");
+        var (_, jobId) = await ImportAsync(owner, projectId);
+        await Service().PutAsJsonAsync($"/internal/ai/jobs/{jobId}/state",
+            new { status = "Completed", progressPercent = 100, result = ImageResult });
+        var (stranger, _) = await OwnerAsync("underlay-scale-stranger@plan2space.dev");
+
+        var put = await stranger.PutAsJsonAsync($"/api/projects/{projectId}/underlay", new { metresPerPixel = 0.02 });
+
+        Assert.Equal(HttpStatusCode.NotFound, put.StatusCode);
+    }
 }
