@@ -18,7 +18,8 @@ import {
   Square,
   DoorOpen,
   Upload,
-  Download
+  Download,
+  Ruler
 } from 'lucide-react'
 
 const ACCEPTED_PLAN_TYPES = '.dxf,.png,.jpg,.jpeg,.pdf'
@@ -167,6 +168,15 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
         >
           <DoorOpen className="w-3.5 h-3.5" />
           <span>Opening</span>
+        </button>
+        <button
+          className={toolClass('measure')}
+          onClick={() => setTool('measure')}
+          aria-pressed={tool === 'measure'}
+          title="Measure & set scale (M)"
+        >
+          <Ruler className="w-3.5 h-3.5" />
+          <span>Scale</span>
         </button>
       </div>
 

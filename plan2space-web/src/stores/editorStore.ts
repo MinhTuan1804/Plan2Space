@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type Tool = 'select' | 'wall' | 'opening'
+export type Tool = 'select' | 'wall' | 'opening' | 'measure'
 export type Selection = { kind: 'wall' | 'opening'; id: string } | null
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))

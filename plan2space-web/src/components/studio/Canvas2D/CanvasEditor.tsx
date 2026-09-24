@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Stage, Layer, Line } from 'react-konva'
+import { Stage, Layer, Line, Text } from 'react-konva'
+import { useMeasureTool } from './useMeasureTool'
+import { CalibrationDialog } from './CalibrationDialog'
 import { WallLayer } from './WallLayer'
 import { RoomLayer } from './RoomLayer'
 import { OpeningLayer } from './OpeningLayer'
@@ -20,6 +22,7 @@ export function CanvasEditor() {
   const walls = useGeometryStore((s) => s.walls)
   const tool = useEditorStore((s) => s.tool)
   const wallTool = useWallTool()
+  const measureTool = useMeasureTool()
   const openingTool = useOpeningTool()
   const underlay = useUnderlay()
   const underlayVisible = useEditorStore((s) => s.underlayVisible)
@@ -27,7 +30,7 @@ export function CanvasEditor() {
   const setUnderlayVisible = useEditorStore((s) => s.setUnderlayVisible)
   const setUnderlayOpacity = useEditorStore((s) => s.setUnderlayOpacity)
   // A tool change (including Escape) abandons a wall in progress.
-  useEffect(() => { wallTool.cancel() }, [tool])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { wallTool.cancel(); measureTool.reset() }, [tool])   // eslint-disable-line react-hooks/exhaustive-deps
 
   function planPointer(e: any) {
     const pos = e.target.getStage()?.getRelativePointerPosition()
@@ -165,7 +168,7 @@ export function CanvasEditor() {
         <Crosshair className="w-3 h-3 text-blue-500" />
         <span>1m = 50px</span>
         <span>·</span>
-        <span>{tool === 'wall' ? 'Drag to draw a wall · Esc to cancel' : tool === 'opening' ? 'Click a wall to place an opening' : 'Drag walls to move'}</span>
+        <span>{tool === 'wall' ? 'Drag to draw a wall · Esc to cancel' : tool === 'opening' ? 'Click a wall to place an opening' : tool === 'measure' ? 'Click two points of a known length' : 'Drag walls to move'}</span>
       </div>
 
       <Stage
@@ -182,11 +185,13 @@ export function CanvasEditor() {
           const p = planPointer(e)
           if (p && tool === 'wall') wallTool.onPointerDown(p)
           else if (p && tool === 'opening') openingTool.onPointerDown(p)
+          else if (p && tool === 'measure') measureTool.onPointerDown(p)
           else if (tool === 'select' && e.target === e.target.getStage()) useEditorStore.getState().select(null)
         }}
         onMouseMove={(e) => {
           const p = planPointer(e)
           if (p && tool === 'wall') wallTool.onPointerMove(p)
+          if (p && tool === 'measure') measureTool.onPointerMove(p)
         }}
         onMouseUp={(e) => {
           const p = planPointer(e)
@@ -215,8 +220,27 @@ export function CanvasEditor() {
               listening={false}
             />
           )}
+          {measureTool.preview && (() => {
+            const [a, b] = measureTool.preview.map(toScreen)
+            const length = Math.hypot(measureTool.preview[1].x - measureTool.preview[0].x,
+                                      measureTool.preview[1].y - measureTool.preview[0].y)
+            return (
+              <>
+                <Line points={[a.x, a.y, b.x, b.y]} stroke="#facc15" strokeWidth={2} dash={[8, 4]} listening={false} />
+                <Text x={(a.x + b.x) / 2 + 6} y={(a.y + b.y) / 2 - 18} text={`${length.toFixed(2)} m`}
+                      fontSize={13} fill="#facc15" listening={false} />
+              </>
+            )
+          })()}
         </Layer>
       </Stage>
+      {tool === 'measure' && measureTool.measuredM !== null && (
+        <CalibrationDialog
+          measuredM={measureTool.measuredM}
+          onApply={() => measureTool.reset()}
+          onCancel={() => measureTool.reset()}
+        />
+      )}
     </div>
   )
 }

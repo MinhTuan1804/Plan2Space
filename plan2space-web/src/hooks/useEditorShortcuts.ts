@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Tool, useEditorStore } from '../stores/editorStore'
 import { useGeometryStore } from '../stores/geometryStore'
 
-const TOOL_KEYS: Record<string, Tool> = { v: 'select', w: 'wall', o: 'opening' }
+const TOOL_KEYS: Record<string, Tool> = { v: 'select', w: 'wall', o: 'opening', m: 'measure' }
 
 // Keys typed into the co-pilot chat or a number field belong to that field, not to the editor.
 export function isTypingTarget(target: EventTarget | null): boolean {
