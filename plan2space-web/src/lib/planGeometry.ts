@@ -89,3 +89,45 @@ export function alongClamped(points: Point[], along: number, widthM: number): Po
   const half = Math.min(widthM / 2, length / 2)
   return pointAlong(points, Math.min(Math.max(along, half), length - half))
 }
+
+// Shorter than this, a measured line is a mis-click, not a dimension.
+export const MIN_MEASURE_M = 0.05
+
+// How much every position must be multiplied by so the measured line becomes its real length.
+export function calibrationFactor(measuredM: number, realM: number): number | null {
+  if (!(measuredM >= MIN_MEASURE_M) || !Number.isFinite(realM) || !(realM > 0)) return null
+  return realM / measuredM
+}
+
+function ring(points: Point[]): Point[] {
+  const n = points.length
+  return n > 1 && points[0].x === points[n - 1].x && points[0].y === points[n - 1].y ? points.slice(0, -1) : points
+}
+
+export function polygonArea(points: Point[]): number {
+  const p = ring(points)
+  let sum = 0
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i]
+    const b = p[(i + 1) % p.length]
+    sum += a.x * b.y - b.x * a.y
+  }
+  return Math.abs(sum) / 2
+}
+
+export function polygonCentroid(points: Point[]): Point {
+  const p = ring(points)
+  let a = 0, cx = 0, cy = 0
+  for (let i = 0; i < p.length; i++) {
+    const s = p[i]
+    const t = p[(i + 1) % p.length]
+    const cross = s.x * t.y - t.x * s.y
+    a += cross
+    cx += (s.x + t.x) * cross
+    cy += (s.y + t.y) * cross
+  }
+  if (Math.abs(a) < 1e-12) {
+    return { x: p.reduce((m, q) => m + q.x, 0) / p.length, y: p.reduce((m, q) => m + q.y, 0) / p.length }
+  }
+  return { x: cx / (3 * a), y: cy / (3 * a) }
+}

@@ -22,6 +22,7 @@ export interface GeometryState {
   moveWallPoint: (wallId: string, index: number, point: Point) => void
   updateOpening: (openingId: string, patch: Partial<Pick<Opening, 'position' | 'widthMeters' | 'type'>>) => void
   deleteOpening: (openingId: string) => void
+  scalePlan: (factor: number) => void
   // Walls changed since the last save, so the rooms must be derived again before saving.
   wallsEdited: boolean
   // The last save could not re-derive rooms and kept the previous ones.
@@ -171,6 +172,17 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
 
     deleteOpening: (openingId) => {
       set((state) => ({ openings: state.openings.filter((o) => o.id !== openingId) }))
+      markEdited()
+    },
+
+    scalePlan: (factor) => {
+      // Calibration corrects measurements, not sizes: thickness, height and opening widths are real-world values.
+      const scale = (p: Point) => ({ x: p.x * factor, y: p.y * factor })
+      set((state) => ({
+        walls: state.walls.map((w) => ({ ...w, points: w.points.map(scale) })),
+        rooms: state.rooms.map((r) => ({ ...r, points: r.points.map(scale) })),
+        openings: state.openings.map((o) => ({ ...o, position: scale(o.position) })),
+      }))
       markEdited()
     },
 
