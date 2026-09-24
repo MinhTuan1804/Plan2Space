@@ -24,3 +24,17 @@ export function floorPatches(rooms: Room[], walls: Wall[]): { points: Point[]; k
 export function wallHeight(walls: Wall[]): number {
   return walls.length === 0 ? DEFAULT_WALL_HEIGHT_M : Math.max(...walls.map((w) => w.heightMeters))
 }
+
+// Where the sun's shadow camera must look, in world coordinates (plan y becomes −z), and how far it must
+// reach: three's default ±5 m box around the origin cuts shadows off on any real house.
+const SHADOW_MARGIN_M = 1
+export function shadowFrame(walls: Wall[]): { centre: [number, number, number]; halfSize: number } {
+  const points = walls.flatMap((w) => w.points)
+  if (points.length === 0) return { centre: [0, 0, 0], halfSize: 5 }
+  const xs = points.map((p) => p.x)
+  const ys = points.map((p) => p.y)
+  const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
+  const cx = (minX + maxX) / 2
+  const cy = (minY + maxY) / 2
+  return { centre: [cx, 0, cy === 0 ? 0 : -cy], halfSize: Math.hypot(maxX - minX, maxY - minY) / 2 + SHADOW_MARGIN_M }
+}

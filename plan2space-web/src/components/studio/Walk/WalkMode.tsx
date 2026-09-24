@@ -5,6 +5,7 @@ import { PointerLockControls } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from '../Viewer3D/HouseModel'
+import { SunLight } from '../Viewer3D/SunLight'
 import { EYE_HEIGHT_M, MAX_STEP_S, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
 import { useMovementKeys } from './useMovementKeys'
 
@@ -43,7 +44,7 @@ export function WalkMode() {
       <Canvas shadows camera={{ fov: 70, near: 0.05, far: 200 }} gl={{ antialias: true }}>
         <color attach="background" args={['#cfe3f5']} />
         <hemisphereLight args={['#fdfbf5', '#8a7a66', 0.9]} />
-        <directionalLight position={[15, 25, 10]} intensity={1.1} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} />
+        <SunLight />
         <group rotation={[-Math.PI / 2, 0, 0]}>
           <HouseModel showCeilings />
         </group>

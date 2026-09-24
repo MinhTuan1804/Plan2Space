@@ -4,6 +4,7 @@ import { OrbitControls, Grid, Center } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from './HouseModel'
+import { SunLight } from './SunLight'
 import { Eye, Footprints } from 'lucide-react'
 
 export function Scene() {
@@ -42,7 +43,7 @@ export function Scene() {
         gl={{ antialias: true, alpha: true }}
       >
         <hemisphereLight args={['#fdfbf5', '#8a7a66', 0.8]} />
-        <directionalLight position={[15, 25, 10]} intensity={1.1} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} />
+        <SunLight />
 
         <OrbitControls
           makeDefault

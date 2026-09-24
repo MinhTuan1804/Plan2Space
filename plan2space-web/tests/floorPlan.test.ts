@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { floorMaterialFor, floorPatches, wallHeight } from '../src/components/studio/Viewer3D/floorPlan'
+import { floorMaterialFor, floorPatches, shadowFrame, wallHeight } from '../src/components/studio/Viewer3D/floorPlan'
 import { floorTexture } from '../src/components/studio/Viewer3D/textures'
 import { Room, Wall } from '../src/services/geometryService'
 
@@ -45,5 +45,12 @@ describe('floors', () => {
     } finally {
       HTMLCanvasElement.prototype.getContext = original
     }
+  })
+
+  it('the sun casts shadows over the whole house, not just 5 m around the origin', () => {
+    // Review finding: three's default shadow box is ±5 m, so a 9 × 11 m house lost its shadows at the edge.
+    const frame = shadowFrame([wall([0, 0], [9, 0]), wall([9, 0], [9, 11])])
+    expect(frame.centre).toEqual([4.5, 0, -5.5])                       // world x, y, z (z = −plan y)
+    expect(frame.halfSize).toBeGreaterThanOrEqual(Math.hypot(4.5, 5.5))
   })
 })
