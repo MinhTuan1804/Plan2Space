@@ -23,6 +23,12 @@ MAX_SEGMENTS = 50_000
 PAIRWISE_CLEANUP_LIMIT = 400
 MIN_COMPONENT_PX = 20
 MIN_COMPONENT_FRACTION = 0.02
+# Walls in a drawn plan are solid strokes several pixels wide; furniture, hatching and text are hairlines.
+# An opening sized from the drawing's own stroke widths erases the hairlines and keeps the walls.
+MIN_WALL_HALF_WIDTH_PX = 2.5    # below this the drawing has no solid walls to separate (e.g. two-line walls)
+STROKE_WIDTH_PERCENTILE = 90    # the widest common strokes are the walls
+KERNEL_TO_HALF_WIDTH = 1.5
+MIN_KEPT_FRACTION = 0.15        # keeping less than this means the filter ate the walls: undo it
 
 
 class VectorizationTooComplexError(ValueError):
@@ -35,6 +41,26 @@ def _threshold_fallback(gray: np.ndarray) -> np.ndarray:
     """Deterministic non-ML wall mask used in tests and as a graceful degrade
     path when model weights are unavailable: dark pixels = wall."""
     return (gray < 128).astype(np.uint8)
+
+
+def keep_thick_strokes(mask: np.ndarray) -> np.ndarray:
+    """Removes hairlines (furniture, hatching, text) and keeps solid wall strokes.
+
+    The kernel comes from the image's own stroke widths, and the unfiltered mask is returned whenever
+    filtering would not help: no thick strokes at all, or so little left that the walls went with it.
+    """
+    mask = mask.astype(np.uint8)
+    if not mask.any():
+        return mask
+    half_widths = cv2.distanceTransform(mask, cv2.DIST_L2, 3)[mask > 0]
+    half_width = float(np.percentile(half_widths, STROKE_WIDTH_PERCENTILE))
+    if half_width < MIN_WALL_HALF_WIDTH_PX:
+        return mask
+    size = max(3, int(round(KERNEL_TO_HALF_WIDTH * half_width)) | 1)
+    opened = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((size, size), np.uint8))
+    if opened.sum() < MIN_KEPT_FRACTION * mask.sum():
+        return mask
+    return opened
 
 
 def _drop_small_components(mask: np.ndarray) -> np.ndarray:
@@ -181,7 +207,7 @@ def vectorize_raster(image_path: str, use_model: bool = True, checkpoint_path: s
     else:
         if use_model:
             logger.warning("No ViT checkpoint configured (P2S_VIT_CHECKPOINT); using threshold wall mask")
-        mask = _threshold_fallback(gray)
+        mask = keep_thick_strokes(_threshold_fallback(gray))
 
     segments = _merge_collinear(_mask_to_segments(_drop_small_components(mask)))
     finalized = finalize_wall_geometry([[a, b] for a, b in segments])
