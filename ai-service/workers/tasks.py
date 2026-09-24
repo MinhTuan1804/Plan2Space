@@ -56,7 +56,9 @@ def vectorize_job(job_id: str, project_id: str, file_object_key: str) -> dict:
         report_progress(job_id, "Running", progress)
         is_dxf = local_path.lower().endswith(DXF_EXTENSIONS)
         if is_dxf:
-            walls, symbols = parse_dxf(local_path)["walls"], []
+            parsed = parse_dxf(local_path)
+            # A DXF states its openings as gaps in the wall; no symbol detector is involved.
+            walls, symbols = parsed["walls"], parsed["openings"]
         else:
             walls, symbols = _raster_to_project_space(local_path)
 

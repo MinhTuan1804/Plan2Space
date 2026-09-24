@@ -39,14 +39,18 @@ def serialize_pipeline_result(walls: list[dict], symbols: list[dict], rooms: lis
                 point, d = _closest_point_on_segment(symbol["bbox_center"], a, b)
                 if best is None or d < best[0]:
                     best = (d, idx, point)
-        if best is None or best[0] > MAX_SYMBOL_TO_WALL_M:
+        # An opening measured from a wall gap sits in the middle of that gap, so it is legitimately
+        # up to half its own width away from either side of the wall it belongs to.
+        width = float(symbol.get("width_m") or default_opening_width_m)
+        if best is None or best[0] > MAX_SYMBOL_TO_WALL_M + width / 2:
             continue
         _, idx, (x, y) = best
         openings_out.append({
             "wallId": walls_out[idx]["id"],
             "type": symbol["type"],
             "position": {"x": round(x, 6), "y": round(y, 6)},
-            "widthMeters": default_opening_width_m,
+            # A DXF gap measures its own width; a raster symbol has none, so it falls back to the default.
+            "widthMeters": width,
             "sillHeightMeters": 0.0 if symbol["type"] == "door" else WINDOW_SILL_HEIGHT_M,
         })
 

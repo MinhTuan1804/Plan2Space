@@ -3,6 +3,7 @@ from shapely.geometry import LineString, Polygon
 from shapely.ops import polygonize, unary_union
 
 from pipeline.geometry_finalizer import finalize_wall_geometry
+from pipeline.wall_gaps import find_wall_gaps
 
 MIN_ROOM_AREA_M2 = 1.0
 MIN_ROOM_WIDTH_M = 0.6    # narrower faces are the gap between a wall's two faces, not a room
@@ -19,6 +20,9 @@ def rooms_from_walls(walls: list[dict]) -> list[dict]:
     lines = [LineString(w["points"]) for w in walls if len(w["points"]) >= 2]
     if not lines:
         return []
+    # A doorway is a gap in the wall, so without bridging it no loop closes and no room is found.
+    # The bridges exist only for this polygonization; the saved walls keep their real gaps.
+    lines += [LineString([u, v]) for u, v, _ in find_wall_gaps(walls)]
     faces = [p for p in polygonize(unary_union(lines))
              if p.area >= MIN_ROOM_AREA_M2 and _min_width(p) >= MIN_ROOM_WIDTH_M]
     faces.sort(key=lambda p: (round(p.centroid.y, 3), round(p.centroid.x, 3)))   # deterministic numbering

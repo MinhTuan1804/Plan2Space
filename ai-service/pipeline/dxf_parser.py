@@ -3,11 +3,17 @@ import math
 import ezdxf
 from ezdxf.math import Matrix44
 
+from pipeline.wall_gaps import find_wall_gaps
+
 DEFAULT_WALL_THICKNESS_M = 0.2
 DEFAULT_WALL_HEIGHT_M = 2.8
 # Substring match: covers WALL, WALLS, A-WALL, A-WALL-EXT… plus the Vietnamese "TUONG" (tường).
 WALL_LAYER_HINTS = ("WALL", "TUONG")
 WALL_ENTITY_TYPES = ("LWPOLYLINE", "POLYLINE", "LINE")
+# A door/window is drawn as a gap in the wall plus a leaf/swing on its own layer; the layer names
+# the kind, the gap gives position and width. "CUA DI"/"CUA SO" are the Vietnamese equivalents.
+DOOR_LAYER_HINTS = ("DOOR", "CUADI", "CUA-DI", "CUA_DI", "CUA DI")
+WINDOW_LAYER_HINTS = ("WINDOW", "CUASO", "CUA-SO", "CUA_SO", "CUA SO")
 # $INSUNITS code -> metres. 0 (unitless) is treated as metres.
 INSUNITS_TO_METRES = {0: 1.0, 1: 0.0254, 2: 0.3048, 4: 0.001, 5: 0.01, 6: 1.0, 14: 0.1}
 
@@ -19,6 +25,15 @@ class NoWallsFoundError(ValueError):
 def _is_wall_layer(layer_name: str) -> bool:
     upper = layer_name.upper()
     return any(hint in upper for hint in WALL_LAYER_HINTS)
+
+
+def _opening_kind(layer_name: str) -> str | None:
+    upper = layer_name.upper()
+    if any(hint in upper for hint in DOOR_LAYER_HINTS):
+        return "door"
+    if any(hint in upper for hint in WINDOW_LAYER_HINTS):
+        return "window"
+    return None
 
 
 def _effective_layer(entity, inherited_layer: str | None) -> str:
@@ -40,16 +55,39 @@ def _raw_points(entity) -> list[tuple[float, float]]:
     return points
 
 
+def _marker_point(entity, transform: Matrix44 | None) -> tuple[float, float] | None:
+    """One representative point for a door/window symbol, used only to name the gap it sits in."""
+    kind = entity.dxftype()
+    if kind in ("ARC", "CIRCLE"):
+        point = (entity.dxf.center.x, entity.dxf.center.y)
+    elif kind in WALL_ENTITY_TYPES:
+        points = _raw_points(entity)
+        if not points:
+            return None
+        point = (sum(x for x, _ in points) / len(points), sum(y for _, y in points) / len(points))
+    else:
+        return None
+    if transform is not None:
+        moved = transform.transform((point[0], point[1], 0))
+        point = (moved.x, moved.y)
+    return point
+
+
 def _extract_from_space(space, transform: Matrix44 | None, inherited_layer: str | None,
-                        scale: float, walls: list[dict]) -> None:
+                        scale: float, walls: list[dict], markers: list[tuple[str, float, float]]) -> None:
     for entity in space:
         kind = entity.dxftype()
         layer = _effective_layer(entity, inherited_layer)
+        opening_kind = _opening_kind(layer)
         if kind == "INSERT":
             # ezdxf matrices use row vectors: apply the insert's own transform first, then the parent's.
             insert_transform = entity.matrix44()
             combined = insert_transform if transform is None else insert_transform @ transform
-            _extract_from_space(entity.block(), combined, layer, scale, walls)
+            _extract_from_space(entity.block(), combined, layer, scale, walls, markers)
+        elif opening_kind is not None:
+            point = _marker_point(entity, transform)
+            if point is not None:
+                markers.append((opening_kind, point[0], point[1]))
         elif kind in WALL_ENTITY_TYPES and _is_wall_layer(layer):
             points = _raw_points(entity)
             if transform is not None:
@@ -173,10 +211,29 @@ def _pair_wall_faces(walls: list[dict]) -> list[dict]:
     return out
 
 
+# How far a door/window symbol may sit from the gap it names before the gap is called a plain door.
+OPENING_MARKER_RADIUS_M = 2.5
+
+
+def _wall_gap_openings(walls: list[dict], markers: list[tuple[str, float, float]]) -> list[dict]:
+    """Every empty doorway-sized gap becomes an opening; the nearest symbol on a DOOR/WINDOW layer names it."""
+    openings = []
+    for u, v, width in find_wall_gaps(walls):
+        cx, cy = round((u[0] + v[0]) / 2, 6), round((u[1] + v[1]) / 2, 6)
+        kind, best = "door", OPENING_MARKER_RADIUS_M
+        for marker_kind, mx, my in markers:
+            distance = math.hypot(mx - cx, my - cy)
+            if distance <= best:
+                kind, best = marker_kind, distance
+        openings.append({"type": kind, "bbox_center": [cx, cy], "width_m": round(width, 6)})
+    return sorted(openings, key=lambda o: (o["bbox_center"][1], o["bbox_center"][0]))
+
+
 def parse_dxf(path: str) -> dict:
     doc = ezdxf.readfile(path)
     raw: list[dict] = []
-    _extract_from_space(doc.modelspace(), None, None, 1.0, raw)
+    markers: list[tuple[str, float, float]] = []
+    _extract_from_space(doc.modelspace(), None, None, 1.0, raw, markers)
     if not raw:
         layers = sorted(layer.dxf.name for layer in doc.layers)
         raise NoWallsFoundError(
@@ -184,4 +241,6 @@ def parse_dxf(path: str) -> dict:
             f"{WALL_LAYER_HINTS}; drawing layers are {layers}")
     scale = _metres_per_unit(doc, raw)
     in_metres = [dict(w, points=[[x * scale, y * scale] for x, y in w["points"]]) for w in raw]
-    return {"walls": _pair_wall_faces(in_metres), "openings": []}
+    walls = _pair_wall_faces(in_metres)
+    scaled_markers = [(kind, x * scale, y * scale) for kind, x, y in markers]
+    return {"walls": walls, "openings": _wall_gap_openings(walls, scaled_markers)}

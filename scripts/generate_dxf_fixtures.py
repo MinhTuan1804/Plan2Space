@@ -56,3 +56,26 @@ doc6.header["$INSUNITS"] = 4
 doc6.layers.add(name="WALLS")
 doc6.modelspace().add_lwpolyline([(0, 0), (5000, 0)], dxfattribs={"layer": "WALLS"})
 doc6.saveas("ai-service/tests/fixtures/walls_in_millimetres.dxf")
+
+# Fixture 7: a real architectural plan — walls are BROKEN where a door or window sits, and the
+# leaf/swing is drawn on its own DOOR/WINDOW layer. Two rooms, 8 x 6 m, split by an interior wall.
+# Gaps: 1.0 m door in the bottom wall, 1.2 m window in the left wall, 0.9 m door in the interior wall.
+doc7 = ezdxf.new()
+doc7.header["$INSUNITS"] = 6          # metres
+for name in ("WALL-EXT", "WALL", "DOOR", "WINDOW", "FURNITURE"):
+    doc7.layers.add(name=name)
+msp7 = doc7.modelspace()
+for a, b in [((0, 0), (3.5, 0)), ((4.5, 0), (8, 0)),          # bottom wall, 1.0 m door gap
+             ((8, 0), (8, 6)), ((8, 6), (0, 6)),              # right and top, unbroken
+             ((0, 6), (0, 5.2)), ((0, 4.0), (0, 0))]:         # left wall, 1.2 m window gap
+    msp7.add_line(a, b, dxfattribs={"layer": "WALL-EXT"})
+for a, b in [((0, 3), (3.55, 3)), ((4.45, 3), (8, 3))]:       # interior wall, 0.9 m door gap
+    msp7.add_line(a, b, dxfattribs={"layer": "WALL"})
+msp7.add_arc((3.5, 0), radius=1.0, start_angle=0, end_angle=90, dxfattribs={"layer": "DOOR"})
+msp7.add_line((3.5, 0), (3.5, 1.0), dxfattribs={"layer": "DOOR"})
+msp7.add_arc((3.55, 3), radius=0.9, start_angle=0, end_angle=90, dxfattribs={"layer": "DOOR"})
+msp7.add_line((3.55, 3), (3.55, 3.9), dxfattribs={"layer": "DOOR"})
+msp7.add_line((0, 4.0), (0, 5.2), dxfattribs={"layer": "WINDOW"})
+msp7.add_line((0.1, 4.0), (0.1, 5.2), dxfattribs={"layer": "WINDOW"})
+msp7.add_lwpolyline([(5, 4), (7, 4), (7, 5), (5, 5), (5, 4)], dxfattribs={"layer": "FURNITURE"})
+doc7.saveas("ai-service/tests/fixtures/plan_with_wall_openings.dxf")
