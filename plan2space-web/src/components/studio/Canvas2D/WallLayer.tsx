@@ -4,7 +4,7 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { snapPoint } from './SnapEngine'
 import { PIXELS_PER_METER, screenDeltaToPlan, screenToPlan, toScreen } from './canvasTransform'
-import { WALL_SNAP_M } from './useWallTool'
+import { snapToWalls } from './useWallTool'
 
 export { PIXELS_PER_METER }
 
@@ -57,8 +57,8 @@ export function WallLayer() {
                   strokeWidth={2}
                   draggable
                   onDragEnd={(e) => {
-                    const target = snapPoint(screenToPlan({ x: e.target.x(), y: e.target.y() }),
-                      useGeometryStore.getState().walls, wall.id, { endpointToleranceM: WALL_SNAP_M })
+                    const target = snapToWalls(screenToPlan({ x: e.target.x(), y: e.target.y() }),
+                      useGeometryStore.getState().walls, wall.id)
                     moveWallPoint(wall.id, index, target)
                   }}
                 />

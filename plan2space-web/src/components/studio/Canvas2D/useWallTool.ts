@@ -1,18 +1,27 @@
 import { useState } from 'react'
-import { Point } from '../../../services/geometryService'
+import { Point, Wall } from '../../../services/geometryService'
 import { useGeometryStore } from '../../../stores/geometryStore'
-import { wallFromDrag } from '../../../lib/planGeometry'
+import { nearestOnWalls, wallFromDrag } from '../../../lib/planGeometry'
 import { snapPoint } from './SnapEngine'
 
 // Loose enough for a mouse: a wall drawn near another wall's end joins it, so rooms can close.
 export const WALL_SNAP_M = 0.2
+
+// A wall end first; otherwise the nearest point on a wall's body, so a partition drawn up to the middle of
+// a wall meets it exactly. A few centimetres short would leave a gap and the rooms either side never close.
+export function snapToWalls(p: Point, walls: Wall[], excludeWallId: string): Point {
+  const toEnd = snapPoint(p, walls, excludeWallId, { endpointToleranceM: WALL_SNAP_M })
+  if (toEnd !== p) return toEnd
+  const hit = nearestOnWalls(p, walls.filter((w) => w.id !== excludeWallId))
+  return hit && hit.distance <= WALL_SNAP_M ? hit.point : p
+}
 
 export function useWallTool() {
   const [start, setStart] = useState<Point | null>(null)
   const [end, setEnd] = useState<Point | null>(null)
   const addWall = useGeometryStore((s) => s.addWall)
 
-  const snap = (p: Point) => snapPoint(p, useGeometryStore.getState().walls, '', { endpointToleranceM: WALL_SNAP_M })
+  const snap = (p: Point) => snapToWalls(p, useGeometryStore.getState().walls, '')
   const cancel = () => { setStart(null); setEnd(null) }
 
   return {

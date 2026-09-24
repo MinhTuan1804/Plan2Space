@@ -34,6 +34,16 @@ describe('wall tool', () => {
     expect(result.current.preview).toBeNull()
   })
 
+  it('a partition drawn to the middle of a wall lands on that wall, so the rooms either side close', () => {
+    // Review finding: only wall ends were snapped, so a partition stopping 5 cm short of a wall's body
+    // left a gap the room finder cannot close, and the user had no way to see it.
+    const { result } = renderHook(() => useWallTool())
+    act(() => result.current.onPointerDown({ x: 2, y: 3 }))
+    act(() => result.current.onPointerUp({ x: 2, y: 0.05 }))
+
+    expect(useGeometryStore.getState().walls[1].points[1]).toEqual({ x: 2, y: 0 })
+  })
+
   it('a click without a drag creates nothing', () => {
     const { result } = renderHook(() => useWallTool())
     act(() => result.current.onPointerDown({ x: 2, y: 2 }))
