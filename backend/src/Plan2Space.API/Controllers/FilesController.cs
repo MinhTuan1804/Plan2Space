@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Plan2Space.Application.Files.Commands;
+using Plan2Space.Application.Files.Queries;
 
 namespace Plan2Space.API.Controllers;
 
@@ -27,5 +28,17 @@ public class FilesController : ControllerBase
         }
         catch (KeyNotFoundException) { return NotFound(); }
         catch (FileValidationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Named GetContent: ControllerBase already has a Content(...) helper.
+    [HttpGet("{fileId:guid}/content")]
+    public async Task<IActionResult> GetContent(Guid projectId, Guid fileId, CancellationToken ct)
+    {
+        try
+        {
+            var file = await _mediator.Send(new GetFileContentQuery(projectId, CurrentUserId, fileId), ct);
+            return File(file.Content, file.ContentType);
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 }

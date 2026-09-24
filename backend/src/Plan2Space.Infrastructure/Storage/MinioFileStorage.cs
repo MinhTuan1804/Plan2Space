@@ -32,6 +32,17 @@ public class MinioFileStorage : IFileStorage
             .WithContentType(contentType), ct);
     }
 
+    public async Task<Stream> GetObjectAsync(string objectKey, CancellationToken ct)
+    {
+        var buffer = new MemoryStream();
+        await _client.GetObjectAsync(new GetObjectArgs()
+            .WithBucket(Bucket)
+            .WithObject(objectKey)
+            .WithCallbackStream(s => s.CopyTo(buffer)), ct);
+        buffer.Position = 0;
+        return buffer;
+    }
+
     private async Task EnsureBucketAsync(CancellationToken ct)
     {
         if (_bucketReady) return;
