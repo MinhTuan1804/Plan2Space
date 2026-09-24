@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Stage, Layer, Line, Text } from 'react-konva'
 import { useMeasureTool } from './useMeasureTool'
 import { CalibrationDialog } from './CalibrationDialog'
+import { applyCalibration } from './applyCalibration'
 import { WallLayer } from './WallLayer'
 import { RoomLayer } from './RoomLayer'
 import { OpeningLayer } from './OpeningLayer'
@@ -23,6 +24,7 @@ export function CanvasEditor() {
   const tool = useEditorStore((s) => s.tool)
   const wallTool = useWallTool()
   const measureTool = useMeasureTool()
+  const [calibrationError, setCalibrationError] = useState<string | null>(null)
   const openingTool = useOpeningTool()
   const underlay = useUnderlay()
   const underlayVisible = useEditorStore((s) => s.underlayVisible)
@@ -30,7 +32,7 @@ export function CanvasEditor() {
   const setUnderlayVisible = useEditorStore((s) => s.setUnderlayVisible)
   const setUnderlayOpacity = useEditorStore((s) => s.setUnderlayOpacity)
   // A tool change (including Escape) abandons a wall in progress.
-  useEffect(() => { wallTool.cancel(); measureTool.reset() }, [tool])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { wallTool.cancel(); measureTool.reset(); setCalibrationError(null) }, [tool])   // eslint-disable-line react-hooks/exhaustive-deps
 
   function planPointer(e: any) {
     const pos = e.target.getStage()?.getRelativePointerPosition()
@@ -237,9 +239,20 @@ export function CanvasEditor() {
       {tool === 'measure' && measureTool.measuredM !== null && (
         <CalibrationDialog
           measuredM={measureTool.measuredM}
-          onApply={() => measureTool.reset()}
+          onApply={async (realM) => {
+            const factor = realM / measureTool.measuredM!
+            const error = await applyCalibration(factor, underlay?.underlay.metresPerPixel ?? null)
+            measureTool.reset()
+            if (error) setCalibrationError(error)
+            else useEditorStore.getState().setTool('select')
+          }}
           onCancel={() => measureTool.reset()}
         />
+      )}
+      {calibrationError && (
+        <div role="alert" className="absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded bg-amber-950/90 px-3 py-2 text-xs text-amber-300">
+          {calibrationError}
+        </div>
       )}
     </div>
   )

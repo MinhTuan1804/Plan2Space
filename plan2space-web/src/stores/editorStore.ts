@@ -18,6 +18,9 @@ interface EditorState {
   setOpeningWidth: (widthM: number) => void
   setUnderlayVisible: (visible: boolean) => void
   setUnderlayOpacity: (opacity: number) => void
+  // Bumped after the underlay's scale is corrected, so the image is fetched again with the new mapping.
+  underlayRevision: number
+  bumpUnderlay: () => void
 }
 
 // How the user is editing, as opposed to what the plan contains (geometryStore).
@@ -34,4 +37,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   setOpeningWidth: (widthM) => set({ openingWidthM: clamp(Number.isFinite(widthM) ? widthM : 0.9, 0.4, 3) }),
   setUnderlayVisible: (underlayVisible) => set({ underlayVisible }),
   setUnderlayOpacity: (opacity) => set({ underlayOpacity: clamp(opacity, 0.1, 1) }),
+  underlayRevision: 0,
+  bumpUnderlay: () => set((s) => ({ underlayRevision: s.underlayRevision + 1 })),
 }))

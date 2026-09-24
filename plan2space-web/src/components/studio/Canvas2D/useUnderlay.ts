@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useGeometryStore } from '../../../stores/geometryStore'
+import { useEditorStore } from '../../../stores/editorStore'
 import { fetchFileObjectUrl, fetchUnderlay, Underlay } from '../../../services/underlayService'
 
 // The latest import's image, if it has one. Re-checked when the plan version changes (a new import);
@@ -7,6 +8,7 @@ import { fetchFileObjectUrl, fetchUnderlay, Underlay } from '../../../services/u
 export function useUnderlay(): { underlay: Underlay; image: HTMLImageElement } | null {
   const projectId = useGeometryStore((s) => s.projectId)
   const version = useGeometryStore((s) => s.version)
+  const revision = useEditorStore((s) => s.underlayRevision)
   const [underlay, setUnderlay] = useState<Underlay | null>(null)
   const [image, setImage] = useState<HTMLImageElement | null>(null)
 
@@ -17,7 +19,7 @@ export function useUnderlay(): { underlay: Underlay; image: HTMLImageElement } |
       .then((u) => { if (!cancelled) setUnderlay(u) })
       .catch(() => { if (!cancelled) setUnderlay(null) })   // no underlay is never an error
     return () => { cancelled = true }
-  }, [projectId, version])
+  }, [projectId, version, revision])
 
   const fileId = underlay?.fileId
   useEffect(() => {

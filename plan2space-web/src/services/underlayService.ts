@@ -18,3 +18,7 @@ export async function fetchFileObjectUrl(projectId: string, fileId: string): Pro
   const { data } = await apiClient.get(`/projects/${projectId}/files/${fileId}/content`, { responseType: 'blob' })
   return URL.createObjectURL(data)
 }
+
+export async function setUnderlayScale(projectId: string, metresPerPixel: number): Promise<void> {
+  await apiClient.put(`/projects/${projectId}/underlay`, { metresPerPixel })
+}
