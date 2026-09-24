@@ -7,7 +7,8 @@ from PIL import Image
 from pipeline.vectorize import keep_thick_strokes, vectorize_raster
 # tests/ has no __init__.py: pytest puts it on sys.path, and a bare import cannot collide with a
 # third-party top-level 'tests' package the way 'tests.raster_fixtures' could.
-from raster_fixtures import FURNITURE_BOX, HATCH_BOX, furnished_plan, thin_line_plan, walls_only
+from raster_fixtures import (FURNITURE_BOX, HATCH_BOX, furnished_plan, mixed_width_plan, partitions_only,
+                             thin_line_plan, walls_only)
 
 
 def _mask(img: np.ndarray) -> np.ndarray:
@@ -51,3 +52,14 @@ def test_vectorizing_a_furnished_plan_traces_walls_not_furniture(tmp_path):
     walls = vectorize_raster(str(path), use_model=False)["walls"]
 
     assert len(walls) <= 12   # 4 outer + 2 interior walls, with slack for corner fragments
+
+
+def test_partitions_half_as_thick_as_the_outer_walls_survive():
+    # Review finding: the kernel was sized from the thickest walls, so 110 mm partitions next to 220 mm
+    # outer walls vanished — and the fallback guard never fired because the outer walls kept enough pixels.
+    partitions = _mask(partitions_only()).astype(bool)
+
+    kept = keep_thick_strokes(_mask(mixed_width_plan())).astype(bool)
+
+    assert kept[partitions].mean() >= 0.8
+    assert kept[65:195, 245:335].sum() == 0     # the hairline table still goes

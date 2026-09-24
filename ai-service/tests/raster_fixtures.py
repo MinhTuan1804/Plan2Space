@@ -46,3 +46,23 @@ def thin_line_plan() -> np.ndarray:
     for offset in (0, 8):
         cv2.rectangle(img, (20 + offset, 20 + offset), (380 - offset, 280 - offset), 0, 1)
     return img
+
+
+# A typical Vietnamese house: 220 mm outer walls and 110 mm partitions, i.e. partitions half as thick.
+OUTER_PX, PARTITION_PX = 12, 6
+
+
+def mixed_width_plan() -> np.ndarray:
+    img = _blank()
+    cv2.rectangle(img, (20, 20), (380, 280), 0, OUTER_PX)
+    cv2.line(img, (200, 20), (200, 280), 0, PARTITION_PX)
+    cv2.line(img, (20, 150), (200, 150), 0, PARTITION_PX)
+    cv2.rectangle(img, (240, 60), (340, 200), 0, 1)       # a hairline table
+    return img
+
+
+def partitions_only() -> np.ndarray:
+    img = _blank()
+    cv2.line(img, (200, 30), (200, 270), 0, PARTITION_PX)
+    cv2.line(img, (30, 150), (190, 150), 0, PARTITION_PX)
+    return img

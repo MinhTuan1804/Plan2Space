@@ -25,9 +25,10 @@ MIN_COMPONENT_PX = 20
 MIN_COMPONENT_FRACTION = 0.02
 # Walls in a drawn plan are solid strokes several pixels wide; furniture, hatching and text are hairlines.
 # An opening sized from the drawing's own stroke widths erases the hairlines and keeps the walls.
-MIN_WALL_HALF_WIDTH_PX = 2.5    # below this the drawing has no solid walls to separate (e.g. two-line walls)
-STROKE_WIDTH_PERCENTILE = 90    # the widest common strokes are the walls
-KERNEL_TO_HALF_WIDTH = 1.5
+MIN_WALL_HALF_WIDTH_PX = 2.5    # below this a stroke is a hairline, not a wall (two-line walls stay untouched)
+MIN_WALL_CENTRELINE_PX = 20     # fewer wall-thick centreline pixels than this: the drawing has no solid walls
+# The kernel follows the THINNEST walls, not the thickest: 110 mm partitions sit beside 220 mm outer walls.
+THINNEST_WALL_PERCENTILE = 10
 MIN_KEPT_FRACTION = 0.15        # keeping less than this means the filter ate the walls: undo it
 
 
@@ -52,11 +53,14 @@ def keep_thick_strokes(mask: np.ndarray) -> np.ndarray:
     mask = mask.astype(np.uint8)
     if not mask.any():
         return mask
-    half_widths = cv2.distanceTransform(mask, cv2.DIST_L2, 3)[mask > 0]
-    half_width = float(np.percentile(half_widths, STROKE_WIDTH_PERCENTILE))
-    if half_width < MIN_WALL_HALF_WIDTH_PX:
+    # Half-width of every stroke, read along its centreline so each stroke counts by length, not by area.
+    ridge = cv2.distanceTransform(mask, cv2.DIST_L2, 3)[skeletonize(mask.astype(bool))]
+    wall_ridge = ridge[ridge >= MIN_WALL_HALF_WIDTH_PX]
+    if wall_ridge.size < MIN_WALL_CENTRELINE_PX:
         return mask
-    size = max(3, int(round(KERNEL_TO_HALF_WIDTH * half_width)) | 1)
+    thinnest_wall = float(np.percentile(wall_ridge, THINNEST_WALL_PERCENTILE))
+    # An opening removes strokes narrower than its kernel: stay just under the thinnest wall's width.
+    size = max(3, int(2 * thinnest_wall - 1) | 1)
     opened = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((size, size), np.uint8))
     if opened.sum() < MIN_KEPT_FRACTION * mask.sum():
         return mask
