@@ -10,3 +10,5 @@ dist/
 .vs/
 .venv/
 *.tsbuildinfo
+model3d/
+tools/furniture/node_modules/

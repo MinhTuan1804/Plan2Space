@@ -1,0 +1,308 @@
+{
+  "items": [
+    {
+      "id": "bed_double",
+      "name": "Giường đôi",
+      "widthM": 1.6,
+      "depthM": 2,
+      "heightM": 1,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bedroom"
+      ],
+      "file": "/furniture/bed_double.glb",
+      "attribution": ""
+    },
+    {
+      "id": "bed_single",
+      "name": "Giường đơn kèm tab",
+      "widthM": 1.4,
+      "depthM": 2.1,
+      "heightM": 1,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bedroom"
+      ],
+      "file": "/furniture/bed_single.glb",
+      "attribution": ""
+    },
+    {
+      "id": "nightstand",
+      "name": "Tủ đầu giường",
+      "widthM": 0.45,
+      "depthM": 0.4,
+      "heightM": 0.55,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bedroom"
+      ],
+      "file": "/furniture/nightstand.glb",
+      "attribution": ""
+    },
+    {
+      "id": "wardrobe",
+      "name": "Tủ quần áo",
+      "widthM": 1.2,
+      "depthM": 0.6,
+      "heightM": 2,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bedroom"
+      ],
+      "file": "/furniture/wardrobe.glb",
+      "attribution": ""
+    },
+    {
+      "id": "sofa_set",
+      "name": "Bộ sofa phòng khách",
+      "widthM": 3.6,
+      "depthM": 2.7,
+      "heightM": 0.8,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "living"
+      ],
+      "file": "/furniture/sofa_set.glb",
+      "attribution": ""
+    },
+    {
+      "id": "coffee_table",
+      "name": "Bàn trà",
+      "widthM": 1.3,
+      "depthM": 0.95,
+      "heightM": 0.4,
+      "elevationM": 0,
+      "againstWall": false,
+      "roomTypes": [
+        "living"
+      ],
+      "file": "/furniture/coffee_table.glb",
+      "attribution": ""
+    },
+    {
+      "id": "tv",
+      "name": "TV treo tường",
+      "widthM": 1.4,
+      "depthM": 0.1,
+      "heightM": 0.85,
+      "elevationM": 0.9,
+      "againstWall": true,
+      "roomTypes": [
+        "living"
+      ],
+      "file": "/furniture/tv.glb",
+      "attribution": ""
+    },
+    {
+      "id": "dining_set",
+      "name": "Bộ bàn ăn",
+      "widthM": 1.5,
+      "depthM": 1.6,
+      "heightM": 0.8,
+      "elevationM": 0,
+      "againstWall": false,
+      "roomTypes": [
+        "dining"
+      ],
+      "file": "/furniture/dining_set.glb",
+      "attribution": ""
+    },
+    {
+      "id": "dining_set_4",
+      "name": "Bàn ăn 4 ghế",
+      "widthM": 2,
+      "depthM": 2,
+      "heightM": 0.75,
+      "elevationM": 0,
+      "againstWall": false,
+      "roomTypes": [
+        "dining"
+      ],
+      "file": "/furniture/dining_set_4.glb",
+      "attribution": ""
+    },
+    {
+      "id": "dining_chair",
+      "name": "Ghế ăn",
+      "widthM": 0.45,
+      "depthM": 0.5,
+      "heightM": 0.9,
+      "elevationM": 0,
+      "againstWall": false,
+      "roomTypes": [
+        "dining"
+      ],
+      "file": "/furniture/dining_chair.glb",
+      "attribution": ""
+    },
+    {
+      "id": "kitchen_counter",
+      "name": "Tủ bếp chữ L",
+      "widthM": 1.8,
+      "depthM": 1.6,
+      "heightM": 0.9,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "kitchen"
+      ],
+      "file": "/furniture/kitchen_counter.glb",
+      "attribution": ""
+    },
+    {
+      "id": "kitchen_sink",
+      "name": "Tủ chậu rửa",
+      "widthM": 1.8,
+      "depthM": 0.65,
+      "heightM": 1.1,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "kitchen"
+      ],
+      "file": "/furniture/kitchen_sink.glb",
+      "attribution": ""
+    },
+    {
+      "id": "base_cabinet",
+      "name": "Tủ bếp dưới",
+      "widthM": 1.2,
+      "depthM": 0.6,
+      "heightM": 0.9,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "kitchen"
+      ],
+      "file": "/furniture/base_cabinet.glb",
+      "attribution": ""
+    },
+    {
+      "id": "wall_cabinet",
+      "name": "Tủ bếp treo",
+      "widthM": 1,
+      "depthM": 0.37,
+      "heightM": 0.54,
+      "elevationM": 1.45,
+      "againstWall": true,
+      "roomTypes": [
+        "kitchen"
+      ],
+      "file": "/furniture/wall_cabinet.glb",
+      "attribution": ""
+    },
+    {
+      "id": "cooktop",
+      "name": "Bếp nấu",
+      "widthM": 0.7,
+      "depthM": 0.4,
+      "heightM": 0.06,
+      "elevationM": 0.9,
+      "againstWall": false,
+      "roomTypes": [
+        "kitchen"
+      ],
+      "file": "/furniture/cooktop.glb",
+      "attribution": ""
+    },
+    {
+      "id": "fridge",
+      "name": "Tủ lạnh",
+      "widthM": 0.7,
+      "depthM": 0.7,
+      "heightM": 1.8,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "kitchen"
+      ],
+      "file": "/furniture/fridge.glb",
+      "attribution": ""
+    },
+    {
+      "id": "toilet",
+      "name": "Bồn cầu",
+      "widthM": 0.4,
+      "depthM": 0.7,
+      "heightM": 0.78,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bathroom"
+      ],
+      "file": "/furniture/toilet.glb",
+      "attribution": ""
+    },
+    {
+      "id": "lavabo",
+      "name": "Lavabo",
+      "widthM": 0.5,
+      "depthM": 0.45,
+      "heightM": 0.85,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bathroom"
+      ],
+      "file": null,
+      "attribution": ""
+    },
+    {
+      "id": "shower",
+      "name": "Buồng tắm",
+      "widthM": 0.9,
+      "depthM": 0.9,
+      "heightM": 2.1,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bathroom"
+      ],
+      "file": null,
+      "attribution": ""
+    },
+    {
+      "id": "washing_machine",
+      "name": "Máy giặt",
+      "widthM": 0.6,
+      "depthM": 0.6,
+      "heightM": 0.85,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bathroom"
+      ],
+      "file": null,
+      "attribution": ""
+    }
+  ],
+  "autoFurnish": {
+    "bedroom": [
+      "bed_double",
+      "nightstand",
+      "wardrobe"
+    ],
+    "living": [
+      "sofa_set",
+      "tv"
+    ],
+    "dining": [
+      "dining_set"
+    ],
+    "kitchen": [
+      "kitchen_counter",
+      "fridge"
+    ],
+    "bathroom": [
+      "toilet",
+      "lavabo",
+      "shower",
+      "washing_machine"
+    ]
+  }
+}
