@@ -28,12 +28,14 @@ export function FurnitureLayer() {
         const at = toScreen({ x: f.x, y: f.y })
         const selected = selection?.kind === 'furniture' && selection.id === f.id
         const colour = known ? '#eab308' : '#71717a'
+        // The name stays upright and spans the rotated footprint's on-screen width.
+        const a = (f.rotationDeg * Math.PI) / 180
+        const labelWidth = Math.abs(w * Math.cos(a)) + Math.abs(d * Math.sin(a))
         return (
           <Group
             key={f.id}
             x={at.x}
             y={at.y}
-            rotation={-f.rotationDeg}
             draggable={editable}
             listening={editable}
             onClick={() => select({ kind: 'furniture', id: f.id })}
@@ -43,12 +45,14 @@ export function FurnitureLayer() {
               moveFurniture(f.id, p.x, p.y)
             }}
           >
-            <Rect x={-w / 2} y={-d / 2} width={w} height={d}
-                  fill={known ? 'rgba(234, 179, 8, 0.18)' : 'rgba(113, 113, 122, 0.35)'}
-                  stroke={selected ? '#ffffff' : colour} strokeWidth={selected ? 2 : 1} />
-            {/* Front edge: local -y in plan is screen +y at rotation 0. */}
-            <Line points={[-w / 2, d / 2, w / 2, d / 2]} stroke={colour} strokeWidth={3} listening={false} />
-            <Text x={-w / 2} y={-6} width={w} align="center" text={entry.name} fontSize={10} fill="#fde68a" listening={false} />
+            <Group rotation={-f.rotationDeg}>
+              <Rect x={-w / 2} y={-d / 2} width={w} height={d}
+                    fill={known ? 'rgba(234, 179, 8, 0.18)' : 'rgba(113, 113, 122, 0.35)'}
+                    stroke={selected ? '#ffffff' : colour} strokeWidth={selected ? 2 : 1} />
+              {/* Front edge: local -y in plan is screen +y at rotation 0. */}
+              <Line points={[-w / 2, d / 2, w / 2, d / 2]} stroke={colour} strokeWidth={3} listening={false} />
+            </Group>
+            <Text x={-labelWidth / 2} y={-6} width={labelWidth} align="center" text={entry.name} fontSize={10} fill="#fde68a" listening={false} />
           </Group>
         )
       })}
