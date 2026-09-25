@@ -1,4 +1,4 @@
-import { Opening, Point, Room, Wall } from '../services/geometryService'
+import { FurnitureItem, Opening, Point, Room, Wall } from '../services/geometryService'
 import { interiorPoint, polygonArea } from './planGeometry'
 
 export const WALK_SPEED_MS = 1.4
@@ -121,4 +121,24 @@ export function spawnPoint(rooms: Room[], walls: Wall[]): Point {
   const xs = points.map((p) => p.x)
   const ys = points.map((p) => p.y)
   return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 }
+}
+
+// Furniture standing on the floor blocks like walls do: its footprint's four edges, with no thickness.
+const BLOCKING_ELEVATION_M = 0.3
+export function furnitureBlockers(
+  furniture: FurnitureItem[],
+  sizeOf: (catalogId: string) => { widthM: number; depthM: number; elevationM: number } | undefined,
+): Blocker[] {
+  const blockers: Blocker[] = []
+  for (const f of furniture) {
+    const size = sizeOf(f.catalogId)
+    if (!size || size.elevationM >= BLOCKING_ELEVATION_M) continue
+    const a = (f.rotationDeg * Math.PI) / 180
+    const [c, s] = [Math.cos(a), Math.sin(a)]
+    const corner = (lx: number, ly: number) => ({ x: f.x + lx * c - ly * s, y: f.y + lx * s + ly * c })
+    const [hw, hd] = [size.widthM / 2, size.depthM / 2]
+    const pts = [corner(-hw, -hd), corner(hw, -hd), corner(hw, hd), corner(-hw, hd)]
+    for (let i = 0; i < 4; i++) blockers.push({ a: pts[i], b: pts[(i + 1) % 4], halfWidth: 0 })
+  }
+  return blockers
 }

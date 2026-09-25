@@ -6,7 +6,8 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from '../Viewer3D/HouseModel'
 import { SunLight } from '../Viewer3D/SunLight'
-import { EYE_HEIGHT_M, MAX_STEP_S, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
+import { EYE_HEIGHT_M, MAX_STEP_S, furnitureBlockers, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
+import { useCatalog } from '../../../services/catalogService'
 import { useMovementKeys } from './useMovementKeys'
 
 // Plan (x, y) at height h is world (x, h, −y): the house group is rotated −90° about X.
@@ -14,7 +15,13 @@ function Player() {
   const walls = useGeometryStore((s) => s.walls)
   const rooms = useGeometryStore((s) => s.rooms)
   const openings = useGeometryStore((s) => s.openings)
-  const blockers = useMemo(() => wallBlockers(walls, openings), [walls, openings])
+  const furniture = useGeometryStore((s) => s.furniture)
+  const catalog = useCatalog()
+  // Beds, sofas and tables block like walls; wall-mounted items do not.
+  const blockers = useMemo(
+    () => [...wallBlockers(walls, openings), ...furnitureBlockers(furniture, (id) => catalog?.byId[id])],
+    [walls, openings, furniture, catalog],
+  )
   const position = useRef(settleSpawn(spawnPoint(rooms, walls), blockers))
   const keys = useMovementKeys()
   const { camera } = useThree()

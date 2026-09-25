@@ -1,5 +1,6 @@
 import { Point, Room, Wall } from '../../../services/geometryService'
 import { polygonArea } from '../../../lib/planGeometry'
+import { RoomType, roomTypeOf } from '../../../lib/roomTypes'
 
 // In these plans a room this small is almost always a WC; pipeline rooms carry no type, only "Room N".
 export const TILE_ROOM_MAX_AREA_M2 = 6
@@ -7,12 +8,16 @@ export const DEFAULT_WALL_HEIGHT_M = 2.8
 
 export type FloorKind = 'wood' | 'tile'
 
-export function floorMaterialFor(areaM2: number): FloorKind {
+// A room the user has typed follows its type (kitchens and bathrooms are tiled); an untyped one, its size.
+export function floorMaterialFor(areaM2: number, type: RoomType | null = null): FloorKind {
+  if (type) return type === 'kitchen' || type === 'bathroom' ? 'tile' : 'wood'
   return areaM2 < TILE_ROOM_MAX_AREA_M2 ? 'tile' : 'wood'
 }
 
 export function floorPatches(rooms: Room[], walls: Wall[]): { points: Point[]; kind: FloorKind }[] {
-  if (rooms.length > 0) return rooms.map((r) => ({ points: r.points, kind: floorMaterialFor(polygonArea(r.points)) }))
+  if (rooms.length > 0) {
+    return rooms.map((r) => ({ points: r.points, kind: floorMaterialFor(polygonArea(r.points), roomTypeOf(r.label)) }))
+  }
   const points = walls.flatMap((w) => w.points)
   if (points.length === 0) return []
   const xs = points.map((p) => p.x)

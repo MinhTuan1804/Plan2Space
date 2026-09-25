@@ -6,6 +6,7 @@ import { useWallGeometry } from './useWallGeometry'
 import { segmentAngleAt } from './cutOpenings'
 import { floorPatches, FloorKind, wallHeight } from './floorPlan'
 import { floorTexture } from './textures'
+import { FurnitureModels } from './FurnitureModels'
 
 const WALL_PAINT = '#efe9df'
 const FLOOR_FALLBACK: Record<FloorKind, string> = { wood: '#b98a5a', tile: '#e6e2da' }
@@ -76,6 +77,7 @@ export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
         const wall = walls.find((w) => w.id === o.wallId)
         return wall ? <WindowGlass key={o.id} opening={o} wall={wall} /> : null
       })}
+      <FurnitureModels />
     </>
   )
 }
