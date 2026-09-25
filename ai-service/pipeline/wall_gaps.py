@@ -66,4 +66,12 @@ def find_wall_gaps(walls: list[dict]) -> list[tuple[tuple[float, float], tuple[f
                     centre = (round((u[0] + v[0]) / 2, 3), round((u[1] + v[1]) / 2, 3))
                     if width < best.get(centre, (None, None, math.inf))[2]:
                         best[centre] = (u, v, width)
-    return list(best.values())
+    # A wall end bounds one doorway only: a stub further along would otherwise add a wider phantom gap
+    # overlapping the real one. The narrowest gap at each end wins.
+    kept, used_ends = [], set()
+    for u, v, width in sorted(best.values(), key=lambda g: g[2]):
+        if u in used_ends or v in used_ends:
+            continue
+        used_ends.update((u, v))
+        kept.append((u, v, width))
+    return kept

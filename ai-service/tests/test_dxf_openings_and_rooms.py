@@ -62,3 +62,22 @@ def test_dxf_job_pushes_the_drawings_openings_and_rooms():
     geometry = push.call_args[0][1]
     assert len(geometry["rooms"]) == 2
     assert sorted(round(o["widthMeters"], 2) for o in geometry["openings"]) == [0.9, 1.0, 1.2]
+
+
+def test_each_imported_opening_sits_inside_a_wall_that_spans_it():
+    # A gap has no wall, so the opening used to snap to the end of the wall beside it: the 3D window
+    # then hung half in that wall and half in empty air, with no wall above or below it.
+    import math
+    celery_app.conf.task_always_eager = True
+    with patch("workers.tasks.download_from_minio", return_value=FIXTURE), \
+         patch("workers.tasks.report_progress"), patch("workers.tasks.report_final_state"), \
+         patch("workers.tasks.push_geometry_to_api") as push:
+        vectorize_job.delay(job_id="j", project_id="p", file_object_key="k.dxf").get()
+    geometry = push.call_args.args[1]
+    walls = {w["id"]: w for w in geometry["walls"]}
+    assert geometry["openings"]
+    for o in geometry["openings"]:
+        p = (o["position"]["x"], o["position"]["y"])
+        a, b = [(q["x"], q["y"]) for q in walls[o["wallId"]]["points"][:2]]
+        half = o["widthMeters"] / 2
+        assert math.dist(p, a) >= half - 0.01 and math.dist(p, b) >= half - 0.01

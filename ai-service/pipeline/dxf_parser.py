@@ -216,9 +216,17 @@ OPENING_MARKER_RADIUS_M = 2.5
 
 
 def _wall_gap_openings(walls: list[dict], markers: list[tuple[str, float, float]]) -> list[dict]:
-    """Every empty doorway-sized gap becomes an opening; the nearest symbol on a DOOR/WINDOW layer names it."""
+    """Every empty doorway-sized gap becomes an opening; the nearest symbol on a DOOR/WINDOW layer names it.
+
+    The gap also gets a wall of its own, as thick as the wall it interrupts: the opening sits in the middle
+    of that wall, so the 3D cut leaves a lintel above every door and wall above and below every window.
+    Without it the opening snapped to the end of the neighbouring wall and hung half in empty air."""
     openings = []
     for u, v, width in find_wall_gaps(walls):
+        beside = next((w for w in walls if tuple(w["points"][0]) == u or tuple(w["points"][-1]) == u), None)
+        walls.append({"points": [list(u), list(v)],
+                      "thickness_m": beside["thickness_m"] if beside else DEFAULT_WALL_THICKNESS_M,
+                      "height_m": beside["height_m"] if beside else DEFAULT_WALL_HEIGHT_M})
         cx, cy = round((u[0] + v[0]) / 2, 6), round((u[1] + v[1]) / 2, 6)
         kind, best = "door", OPENING_MARKER_RADIUS_M
         for marker_kind, mx, my in markers:
@@ -243,4 +251,5 @@ def parse_dxf(path: str) -> dict:
     in_metres = [dict(w, points=[[x * scale, y * scale] for x, y in w["points"]]) for w in raw]
     walls = _pair_wall_faces(in_metres)
     scaled_markers = [(kind, x * scale, y * scale) for kind, x, y in markers]
-    return {"walls": walls, "openings": _wall_gap_openings(walls, scaled_markers)}
+    openings = _wall_gap_openings(walls, scaled_markers)   # also adds the wall across each gap
+    return {"walls": walls, "openings": openings}
