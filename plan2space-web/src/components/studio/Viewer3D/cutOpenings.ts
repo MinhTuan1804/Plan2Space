@@ -4,6 +4,10 @@ import { Wall, Opening, Point } from '../../../services/geometryService'
 
 const evaluator = new Evaluator()
 
+// Standard opening heights, metres: the cut, the door model and the window frame all use them.
+export const DOOR_HEIGHT_M = 2.1
+export const WINDOW_HEIGHT_M = 1.2
+
 // Direction of the wall segment closest to the opening (a polyline wall has several).
 export function segmentAngleAt(wall: Wall, p: Point): number {
   let best = { distance: Infinity, angle: 0 }
@@ -23,7 +27,7 @@ export function segmentAngleAt(wall: Wall, p: Point): number {
 
 export function openingCutterGeometry(wall: Wall, opening: Opening): THREE.BufferGeometry {
   const angle = segmentAngleAt(wall, opening.position)
-  const height = opening.type === 'Door' ? 2.1 : 1.2 // standard door/window heights, meters
+  const height = opening.type === 'Door' ? DOOR_HEIGHT_M : WINDOW_HEIGHT_M
   const geometry = new THREE.BoxGeometry(opening.widthMeters, wall.thicknessMeters * 2, height)
   geometry.rotateZ(angle)
   geometry.translate(opening.position.x, opening.position.y, opening.sillHeightMeters + height / 2)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { RoomType } from '../lib/roomTypes'
+import type { DoorSpec } from '../components/studio/Viewer3D/openingFixtures'
 
 export interface CatalogEntry {
   id: string
@@ -14,9 +15,15 @@ export interface CatalogEntry {
   attribution: string
 }
 
+export interface CatalogDoor extends DoorSpec {
+  frame: string
+  leaf: string
+}
+
 export interface Catalog {
   items: CatalogEntry[]
   autoFurnish: Record<RoomType, string[]>
+  door?: CatalogDoor | null
   byId: Record<string, CatalogEntry>
 }
 
