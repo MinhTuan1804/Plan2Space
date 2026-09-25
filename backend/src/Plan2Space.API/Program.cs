@@ -31,7 +31,8 @@ var config = builder.Configuration;
 var jwtSecret = config["Jwt:Secret"] ?? throw new InvalidOperationException("Jwt:Secret missing");
 
 builder.Services.AddDbContext<Plan2SpaceDbContext>(o =>
-    o.UseNpgsql(config.GetConnectionString("Default"), npg => npg.UseNetTopologySuite()));
+    o.UseNpgsql(config.GetConnectionString("Default"), npg => npg.UseNetTopologySuite()
+        .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));   // a plan's four collections must not JOIN into walls×rooms×openings×furniture rows
 builder.Services.AddScoped<IPlan2SpaceDbContext>(sp => sp.GetRequiredService<Plan2SpaceDbContext>());
 
 builder.Services.AddSingleton<IJwtTokenService>(new JwtTokenService(jwtSecret));

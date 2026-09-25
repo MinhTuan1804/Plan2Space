@@ -53,3 +53,20 @@ def test_grid_items_go_near_the_middle_of_the_room():
 
 def test_without_items_the_built_in_catalog_still_works():
     assert len(suggest_layout(ROOM, "Bedroom")) > 0
+
+
+def test_against_wall_item_that_fits_no_wall_is_skipped_not_dropped_in_the_middle():
+    # Every edge of this 16-sided room is 1.17 m: a 1.5 m wardrobe fits no wall, though the middle is free.
+    ring = [[3 * math.cos(2 * math.pi * k / 16), 3 * math.sin(2 * math.pi * k / 16)] for k in range(16)]
+    wardrobe = {"item": "wardrobe", "width_m": 1.5, "depth_m": 0.5, "against_wall": True}
+    assert suggest_layout(ring, "Phòng ngủ", items=[wardrobe, TABLE]) == [
+        p for p in suggest_layout(ring, "Phòng ngủ", items=[TABLE])]
+
+
+def test_grid_search_is_bounded_for_huge_rooms():
+    # An uncalibrated plan (pixels read as metres) must not build millions of candidate spots.
+    from pipeline.generative_staging import MAX_GRID_SPOTS, _grid_spots
+    huge = Polygon([[0, 0], [1000, 0], [1000, 1000], [0, 1000]])
+    assert len(list(_grid_spots(huge, 1.0, 0.6))) <= MAX_GRID_SPOTS
+    [placed] = suggest_layout([[0, 0], [1000, 0], [1000, 1000], [0, 1000]], "x", items=[TABLE])
+    assert math.dist(placed["position"], (500, 500)) < 1

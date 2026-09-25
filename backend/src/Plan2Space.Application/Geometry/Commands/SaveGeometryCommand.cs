@@ -138,13 +138,15 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
         {
             if (cmd.Furniture.Count > MaxFurniture)
                 throw new GeometryValidationException($"A plan can hold at most {MaxFurniture} furniture items");
+            if (cmd.Furniture.Any(f => f is null))
+                throw new GeometryValidationException("A furniture entry must not be null");
             var existingFurniture = project.Furniture.ToDictionary(f => f.Id);
             var takenFurnitureIds = await TakenElsewhereAsync(_db.Furniture, cmd.Furniture.Select(f => f.Id), existingFurniture.Keys, ct);
             var usedFurnitureIds = new HashSet<Guid>();
             var keptFurniture = new List<FurnitureItem>();
             foreach (var f in cmd.Furniture)
             {
-                if (f is null || f.CatalogId is null || !CatalogIdShape.IsMatch(f.CatalogId))
+                if (f.CatalogId is null || !CatalogIdShape.IsMatch(f.CatalogId))
                     throw new GeometryValidationException("A furniture catalogId must be 1-64 characters of a-z, 0-9, _ or -");
                 if (!double.IsFinite(f.X) || !double.IsFinite(f.Y) || !double.IsFinite(f.RotationDeg))
                     throw new GeometryValidationException("Furniture position and rotation must be finite numbers");

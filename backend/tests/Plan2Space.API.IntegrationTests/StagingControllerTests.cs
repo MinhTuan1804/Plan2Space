@@ -130,4 +130,25 @@ public class StagingControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
         });
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
+
+    // An uncalibrated plan reads pixels as metres: rooms that size would make the placement search run away.
+    [Theory]
+    [InlineData("huge")]
+    [InlineData("points")]
+    [InlineData("zones")]
+    public async Task OversizedRequests_Return400WithoutCallingTheAiService(string kind)
+    {
+        var called = false;
+        var client = await ClientAsync($"staging-big-{kind}@plan2space.dev", (_, _) => { called = true; return new(); });
+        var polygon = kind switch
+        {
+            "huge" => new[] { new[] { 0.0, 0.0 }, new[] { 5000.0, 0.0 }, new[] { 5000.0, 5000.0 }, new[] { 0.0, 5000.0 } },
+            "points" => Enumerable.Range(0, 600).Select(k => new[] { 3 * Math.Cos(k * Math.PI / 300), 3 * Math.Sin(k * Math.PI / 300) }).ToArray(),
+            _ => Square,
+        };
+        var keepClear = kind == "zones" ? Enumerable.Range(0, 60).Select(k => new[] { 1.0, 1.0, 0.5 }).ToArray() : Array.Empty<double[]>();
+        var res = await client.PostAsJsonAsync("/api/staging/suggest", new { roomPolygon = polygon, roomLabel = "x", keepClear });
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.False(called);
+    }
 }

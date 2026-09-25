@@ -76,19 +76,32 @@ def _against_wall(room_poly, w, d, placed_boxes, zones):
     return None
 
 
-def _on_grid(room_poly, w, d, placed_boxes, zones):
-    """Unrotated, trying spots nearest the room's middle first."""
+# Only the window of grid spots around the middle is tried: an uncalibrated plan (pixels read as metres)
+# would otherwise build and sort millions of spots per item.
+MAX_GRID_SPOTS = 40000
+
+
+def _grid_spots(room_poly, w, d):
+    """Grid spots where a w×d box fits the room's bounds, nearest the room's middle first."""
     minx, miny, maxx, maxy = room_poly.bounds
     centre = room_poly.representative_point()
-    spots = []
-    y = miny + d / 2 + MARGIN_M
-    while y + d / 2 + MARGIN_M <= maxy:
-        x = minx + w / 2 + MARGIN_M
-        while x + w / 2 + MARGIN_M <= maxx:
-            spots.append((x, y))
-            x += STEP_M
-        y += STEP_M
-    for x, y in sorted(spots, key=lambda s: math.dist(s, (centre.x, centre.y))):
+    x0, y0 = minx + w / 2 + MARGIN_M, miny + d / 2 + MARGIN_M
+    nx = math.floor((maxx - w / 2 - MARGIN_M - x0) / STEP_M + 1e-9) + 1
+    ny = math.floor((maxy - d / 2 - MARGIN_M - y0) / STEP_M + 1e-9) + 1
+    if nx <= 0 or ny <= 0:
+        return []
+    half = int(math.sqrt(MAX_GRID_SPOTS)) // 2
+    ci = min(max(round((centre.x - x0) / STEP_M), 0), nx - 1)
+    cj = min(max(round((centre.y - y0) / STEP_M), 0), ny - 1)
+    spots = [(x0 + i * STEP_M, y0 + j * STEP_M)
+             for j in range(max(0, cj - half), min(ny, cj + half))
+             for i in range(max(0, ci - half), min(nx, ci + half))]
+    return sorted(spots, key=lambda s: math.dist(s, (centre.x, centre.y)))
+
+
+def _on_grid(room_poly, w, d, placed_boxes, zones):
+    """Unrotated, trying spots nearest the room's middle first."""
+    for x, y in _grid_spots(room_poly, w, d):
         candidate = _footprint(x, y, w, d, 0.0)
         if _fits(candidate, room_poly, placed_boxes, zones):
             return x, y, 0.0, candidate
@@ -111,7 +124,9 @@ def suggest_layout(room_polygon: list[list[float]], room_label: str,
     placed_boxes, results = [], []
     for furniture in wanted:
         w, d = furniture["width_m"], furniture["depth_m"]
-        spot = (_against_wall(room_poly, w, d, placed_boxes, zones) if furniture.get("against_wall") else None)             or _on_grid(room_poly, w, d, placed_boxes, zones)
+        # An against-wall item that fits no wall is skipped: standing in the middle, unrotated, it would be wrong.
+        spot = (_against_wall(room_poly, w, d, placed_boxes, zones) if furniture.get("against_wall")
+                else _on_grid(room_poly, w, d, placed_boxes, zones))
         if spot is None:
             continue
         x, y, rotation, candidate = spot

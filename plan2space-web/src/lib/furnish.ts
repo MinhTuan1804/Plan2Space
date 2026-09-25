@@ -18,8 +18,8 @@ export async function autoFurnishRoom(roomId: string, catalog: Catalog): Promise
   let placed
   try {
     placed = await suggestFurniture(room.points, room.label, items, keepClear)
-  } catch {
-    return 'Auto-furnish is unavailable right now. Try again.'
+  } catch (err: any) {
+    return err?.response?.data?.message || 'Auto-furnish is unavailable right now. Try again.'
   }
   useGeometryStore.getState().replaceFurnitureInRoom(room.points,
     placed.map((p) => ({ catalogId: p.item, x: p.position[0], y: p.position[1], rotationDeg: p.rotationDeg })))

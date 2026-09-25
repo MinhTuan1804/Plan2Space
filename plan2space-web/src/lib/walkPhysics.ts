@@ -1,5 +1,5 @@
 import { FurnitureItem, Opening, Point, Room, Wall } from '../services/geometryService'
-import { interiorPoint, polygonArea } from './planGeometry'
+import { interiorPoint, pointInPolygon, polygonArea } from './planGeometry'
 
 export const WALK_SPEED_MS = 1.4
 export const RUN_SPEED_MS = 3
@@ -125,11 +125,10 @@ export function spawnPoint(rooms: Room[], walls: Wall[]): Point {
 
 // Furniture standing on the floor blocks like walls do: its footprint's four edges, with no thickness.
 const BLOCKING_ELEVATION_M = 0.3
-export function furnitureBlockers(
-  furniture: FurnitureItem[],
-  sizeOf: (catalogId: string) => { widthM: number; depthM: number; elevationM: number } | undefined,
-): Blocker[] {
-  const blockers: Blocker[] = []
+type SizeOf = (catalogId: string) => { widthM: number; depthM: number; elevationM: number } | undefined
+
+export function furnitureFootprints(furniture: FurnitureItem[], sizeOf: SizeOf): Point[][] {
+  const footprints: Point[][] = []
   for (const f of furniture) {
     const size = sizeOf(f.catalogId)
     if (!size || size.elevationM >= BLOCKING_ELEVATION_M) continue
@@ -137,8 +136,40 @@ export function furnitureBlockers(
     const [c, s] = [Math.cos(a), Math.sin(a)]
     const corner = (lx: number, ly: number) => ({ x: f.x + lx * c - ly * s, y: f.y + lx * s + ly * c })
     const [hw, hd] = [size.widthM / 2, size.depthM / 2]
-    const pts = [corner(-hw, -hd), corner(hw, -hd), corner(hw, hd), corner(-hw, hd)]
-    for (let i = 0; i < 4; i++) blockers.push({ a: pts[i], b: pts[(i + 1) % 4], halfWidth: 0 })
+    footprints.push([corner(-hw, -hd), corner(hw, -hd), corner(hw, hd), corner(-hw, hd)])
   }
-  return blockers
+  return footprints
+}
+
+export function furnitureBlockers(furniture: FurnitureItem[], sizeOf: SizeOf): Blocker[] {
+  return furnitureFootprints(furniture, sizeOf)
+    .flatMap((pts) => pts.map((a, i) => ({ a, b: pts[(i + 1) % pts.length], halfWidth: 0 })))
+}
+
+// Footprint edges only push outwards from outside: a player inside a bed could never leave it.
+// So the start moves to the nearest spot (rings of FREE_STEP_M) clear of every blocker and footprint,
+// inside `within` when given (the room the walk starts in).
+const FREE_STEP_M = 0.1
+const FREE_MAX_RINGS = 100
+function isFree(p: Point, blockers: Blocker[], footprints: Point[][], within?: Point[]): boolean {
+  if (within && !pointInPolygon(p, within)) return false
+  if (footprints.some((f) => pointInPolygon(p, f))) return false
+  return blockers.every((bl) => {
+    const { point: c } = closest(p, bl.a, bl.b)
+    return Math.hypot(p.x - c.x, p.y - c.y) >= bl.halfWidth + PLAYER_RADIUS_M
+  })
+}
+
+export function freeSpot(start: Point, blockers: Blocker[], footprints: Point[][], within?: Point[]): Point {
+  if (isFree(start, blockers, footprints, within)) return start
+  for (let ring = 1; ring <= FREE_MAX_RINGS; ring++) {
+    const r = ring * FREE_STEP_M
+    const count = Math.max(8, Math.round((2 * Math.PI * r) / FREE_STEP_M))
+    for (let k = 0; k < count; k++) {
+      const a = (2 * Math.PI * k) / count
+      const p = { x: start.x + r * Math.cos(a), y: start.y + r * Math.sin(a) }
+      if (isFree(p, blockers, footprints, within)) return p
+    }
+  }
+  return settleSpawn(start, blockers)
 }

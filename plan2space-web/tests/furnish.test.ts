@@ -50,4 +50,9 @@ describe('auto-furnish', () => {
     expect(await autoFurnishRoom('r1', catalog)).toBeTruthy()
     expect(useGeometryStore.getState().furniture).toHaveLength(2)
   })
+
+  it("the server's reason is shown when it gives one (e.g. an uncalibrated, oversized room)", async () => {
+    vi.mocked(stagingService.suggestFurniture).mockRejectedValue({ response: { status: 400, data: { message: 'Calibrate the plan first.' } } })
+    expect(await autoFurnishRoom('r1', catalog)).toBe('Calibrate the plan first.')
+  })
 })

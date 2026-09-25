@@ -6,7 +6,8 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from '../Viewer3D/HouseModel'
 import { SunLight } from '../Viewer3D/SunLight'
-import { EYE_HEIGHT_M, MAX_STEP_S, furnitureBlockers, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
+import { EYE_HEIGHT_M, MAX_STEP_S, freeSpot, furnitureBlockers, furnitureFootprints, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
+import { pointInPolygon } from '../../../lib/planGeometry'
 import { useCatalog } from '../../../services/catalogService'
 import { useMovementKeys } from './useMovementKeys'
 
@@ -22,7 +23,14 @@ function Player() {
     () => [...wallBlockers(walls, openings), ...furnitureBlockers(furniture, (id) => catalog?.byId[id])],
     [walls, openings, furniture, catalog],
   )
+  const footprints = useMemo(() => furnitureFootprints(furniture, (id) => catalog?.byId[id]), [furniture, catalog])
   const position = useRef(settleSpawn(spawnPoint(rooms, walls), blockers))
+  // The catalog arrives after the first render: a start the furniture now covers moves to a free spot
+  // in the same room (auto-furnished sofas and dining sets often cover the room centre).
+  useEffect(() => {
+    const room = rooms.find((r) => pointInPolygon(position.current, r.points))
+    position.current = freeSpot(position.current, blockers, footprints, room?.points)
+  }, [rooms, blockers, footprints])
   const keys = useMovementKeys()
   const { camera } = useThree()
   const look = useMemo(() => new THREE.Vector3(), [])

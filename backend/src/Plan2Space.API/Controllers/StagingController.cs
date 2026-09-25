@@ -17,6 +17,9 @@ public class StagingController : ControllerBase
 
     public record SuggestRequest(List<List<double>> RoomPolygon, string RoomLabel,
         List<StagingRequestItem>? Items = null, List<List<double>>? KeepClear = null);
+    private const int MaxPolygonPoints = 500;
+    private const double MaxRoomExtentM = 200;
+    private const int MaxKeepClear = 50;
     private static readonly Regex ItemId = new("^[a-z0-9_-]{1,64}$", RegexOptions.Compiled);
 
     [HttpPost("suggest")]
@@ -25,9 +28,16 @@ public class StagingController : ControllerBase
     {
         if (req.RoomPolygon is null || req.RoomPolygon.Count < 3 || req.RoomPolygon.Any(p => p is null || p.Count != 2 || p.Any(v => !double.IsFinite(v))))
             return BadRequest(new { message = "roomPolygon must be at least 3 [x, y] points." });
+        // An uncalibrated plan reads pixels as metres; rooms that size would make the placement search run away.
+        if (req.RoomPolygon.Count > MaxPolygonPoints
+            || req.RoomPolygon.Max(p => p[0]) - req.RoomPolygon.Min(p => p[0]) > MaxRoomExtentM
+            || req.RoomPolygon.Max(p => p[1]) - req.RoomPolygon.Min(p => p[1]) > MaxRoomExtentM)
+            return BadRequest(new { message = $"roomPolygon must have at most {MaxPolygonPoints} points and span at most {MaxRoomExtentM} m. Calibrate the plan's scale first." });
         if (req.Items is { Count: > 50 } || req.Items?.Any(i => i is null || i.Id is null || !ItemId.IsMatch(i.Id)
                 || !(i.WidthM > 0) || !(i.DepthM > 0) || !double.IsFinite(i.WidthM) || !double.IsFinite(i.DepthM)) == true)
             return BadRequest(new { message = "items must be at most 50 entries with an id and positive sizes." });
+        if (req.KeepClear is { Count: > MaxKeepClear })
+            return BadRequest(new { message = $"keepClear must have at most {MaxKeepClear} entries." });
         if (req.KeepClear?.Any(z => z is null || z.Count != 3 || z.Any(v => !double.IsFinite(v)) || !(z[2] > 0)) == true)
             return BadRequest(new { message = "keepClear entries must be [x, y, radius] with a positive radius." });
         try

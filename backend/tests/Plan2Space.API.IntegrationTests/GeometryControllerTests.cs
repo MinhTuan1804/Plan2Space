@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFactory>
@@ -233,5 +235,28 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
             furniture = new[] { new { catalogId, x = double.IsNaN(x) ? (double?)null : x, y = 1.0, rotationDeg = 0.0 } }
         });
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task NullFurnitureEntry_Returns400()
+    {
+        var (client, project) = await AuthedProjectAsync($"furn-null-{Guid.NewGuid():N}@plan2space.dev");
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, walls = OneWall(), rooms = Array.Empty<object>(), openings = Array.Empty<object>(),
+            furniture = new object?[] { null }
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    // Walls, rooms, openings and furniture load in one Include chain: a single JOIN multiplies their rows.
+    [Fact]
+    public void GeometryQueries_AreSplit()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<Plan2Space.Infrastructure.Persistence.Plan2SpaceDbContext>();
+        var options = db.GetService<Microsoft.EntityFrameworkCore.Infrastructure.IDbContextOptions>();
+        var relational = Microsoft.EntityFrameworkCore.Infrastructure.RelationalOptionsExtension.Extract(options);
+        Assert.Equal(Microsoft.EntityFrameworkCore.QuerySplittingBehavior.SplitQuery, relational.QuerySplittingBehavior);
     }
 }
