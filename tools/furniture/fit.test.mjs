@@ -26,3 +26,11 @@ test('proportions are never distorted: the tightest axis decides', () => {
   const t = fitTransform({ min: [0, 0, 0], max: [1, 4, 1] }, { widthM: 1, depthM: 1, heightM: 2 })
   near(t.scale, 0.5)
 })
+
+test('a quarter-turn yaw offset (a model whose front is its side) swaps the extents it is fitted by', () => {
+  // Long along x (0.8) and the catalog is long along width too, but the offset turns the model 90°:
+  // its 0.8 side now lies along depth (0.6), so it must shrink to 0.75.
+  const t = fitTransform({ min: [0, 0, 0], max: [0.8, 1, 0.6] }, { widthM: 0.8, depthM: 0.6, heightM: 2 }, 90)
+  near(t.yawDeg, 90)
+  near(t.scale, 0.75)
+})

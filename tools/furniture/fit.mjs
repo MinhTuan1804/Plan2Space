@@ -3,9 +3,11 @@
 export function fitTransform(bounds, target, yawOffsetDeg = 0) {
   const [ex, ey, ez] = bounds.max.map((v, i) => v - bounds.min[i])
   const turn = (ex >= ez) !== (target.widthM >= target.depthM)
-  const [w0, d0] = turn ? [ez, ex] : [ex, ez]
-  const scale = Math.min(target.widthM / w0, target.depthM / d0, target.heightM / ey)
   const yawDeg = (turn ? 90 : 0) + yawOffsetDeg
+  // Whatever turned the model (the long-side match or a model facing sideways), a quarter turn swaps its sides.
+  const quarter = Math.round(yawDeg / 90) % 2 !== 0
+  const [w0, d0] = quarter ? [ez, ex] : [ex, ez]
+  const scale = Math.min(target.widthM / w0, target.depthM / d0, target.heightM / ey)
   const cx = (bounds.min[0] + bounds.max[0]) / 2
   const cz = (bounds.min[2] + bounds.max[2]) / 2
   const [rx, rz] = rotateY([cx, cz], yawDeg)

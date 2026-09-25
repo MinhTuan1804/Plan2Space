@@ -11,7 +11,8 @@
       "againstWall": true,
       "roomTypes": [
         "bedroom"
-      ]
+      ],
+      "yawOffsetDeg": 180
     },
     {
       "id": "bed_single",
@@ -37,7 +38,8 @@
       "againstWall": true,
       "roomTypes": [
         "bedroom"
-      ]
+      ],
+      "yawOffsetDeg": 180
     },
     {
       "id": "wardrobe",
@@ -50,7 +52,8 @@
       "againstWall": true,
       "roomTypes": [
         "bedroom"
-      ]
+      ],
+      "yawOffsetDeg": 180
     },
     {
       "id": "sofa_set",
@@ -89,7 +92,8 @@
       "againstWall": true,
       "roomTypes": [
         "living"
-      ]
+      ],
+      "yawOffsetDeg": 180
     },
     {
       "id": "dining_set",
@@ -206,7 +210,8 @@
       "againstWall": true,
       "roomTypes": [
         "kitchen"
-      ]
+      ],
+      "yawOffsetDeg": -90
     },
     {
       "id": "toilet",
@@ -219,7 +224,8 @@
       "againstWall": true,
       "roomTypes": [
         "bathroom"
-      ]
+      ],
+      "yawOffsetDeg": 180
     },
     {
       "id": "lavabo",
