@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Stage, Layer, Line, Text } from 'react-konva'
 import { useMeasureTool } from './useMeasureTool'
+import { FurnitureLayer } from './FurnitureLayer'
+import { FurnitureLibrary } from './FurnitureLibrary'
 import { CalibrationDialog } from './CalibrationDialog'
 import { applyCalibration, retryUnderlayScale } from './applyCalibration'
 import { WallLayer } from './WallLayer'
@@ -171,7 +173,7 @@ export function CanvasEditor() {
         <Crosshair className="w-3 h-3 text-blue-500" />
         <span>1m = 50px</span>
         <span>·</span>
-        <span>{tool === 'wall' ? 'Drag to draw a wall · Esc to cancel' : tool === 'opening' ? 'Click a wall to place an opening' : tool === 'measure' ? 'Click two points of a known length' : 'Drag walls to move'}</span>
+        <span>{tool === 'wall' ? 'Drag to draw a wall · Esc to cancel' : tool === 'opening' ? 'Click a wall to place an opening' : tool === 'measure' ? 'Click two points of a known length' : tool === 'furniture' ? 'Pick furniture, click to place · V then R to rotate' : 'Drag walls to move'}</span>
       </div>
 
       <Stage
@@ -189,6 +191,10 @@ export function CanvasEditor() {
           if (p && tool === 'wall') wallTool.onPointerDown(p)
           else if (p && tool === 'opening') openingTool.onPointerDown(p)
           else if (p && tool === 'measure') measureTool.onPointerDown(p)
+          else if (p && tool === 'furniture') {
+            const catalogId = useEditorStore.getState().pendingCatalogId
+            if (catalogId) useGeometryStore.getState().addFurniture({ catalogId, x: p.x, y: p.y, rotationDeg: 0 })
+          }
           else if (tool === 'select' && e.target === e.target.getStage()) useEditorStore.getState().select(null)
         }}
         onMouseMove={(e) => {
@@ -211,6 +217,7 @@ export function CanvasEditor() {
             <UnderlayLayer underlay={underlay.underlay} image={underlay.image} opacity={underlayOpacity} />
           )}
           <RoomLayer />
+          <FurnitureLayer />
           <WallLayer />
           <OpeningLayer />
           {wallTool.preview && (
@@ -237,6 +244,7 @@ export function CanvasEditor() {
           })()}
         </Layer>
       </Stage>
+      {tool === 'furniture' && <FurnitureLibrary />}
       {tool === 'measure' && measureTool.measuredM !== null && (
         <CalibrationDialog
           measuredM={measureTool.measuredM}

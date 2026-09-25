@@ -19,7 +19,8 @@ import {
   DoorOpen,
   Upload,
   Download,
-  Ruler
+  Ruler,
+  Sofa
 } from 'lucide-react'
 
 const ACCEPTED_PLAN_TYPES = '.dxf,.png,.jpg,.jpeg,.pdf'
@@ -177,6 +178,15 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
         >
           <Ruler className="w-3.5 h-3.5" />
           <span>Scale</span>
+        </button>
+        <button
+          className={toolClass('furniture')}
+          onClick={() => setTool('furniture')}
+          aria-pressed={tool === 'furniture'}
+          title="Furniture (F)"
+        >
+          <Sofa className="w-3.5 h-3.5" />
+          <span>Furniture</span>
         </button>
       </div>
 

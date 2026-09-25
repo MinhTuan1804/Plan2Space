@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { Underlay } from '../services/underlayService'
 
-export type Tool = 'select' | 'wall' | 'opening' | 'measure'
-export type Selection = { kind: 'wall' | 'opening'; id: string } | null
+export type Tool = 'select' | 'wall' | 'opening' | 'measure' | 'furniture'
+export type Selection = { kind: 'wall' | 'opening' | 'furniture' | 'room'; id: string } | null
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -31,6 +31,9 @@ interface EditorState {
   // The latest import's pixel-to-metre mapping, known as soon as it is fetched (before the image loads).
   underlayMeta: Underlay | null
   setUnderlayMeta: (underlay: Underlay | null) => void
+  // The catalog item the furniture tool places on the next click.
+  pendingCatalogId: string | null
+  setPendingCatalogId: (id: string | null) => void
 }
 
 // How the user is editing, as opposed to what the plan contains (geometryStore).
@@ -55,4 +58,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   setPendingUnderlayMpp: (pendingUnderlayMpp) => set({ pendingUnderlayMpp }),
   underlayMeta: null,
   setUnderlayMeta: (underlayMeta) => set({ underlayMeta }),
+  pendingCatalogId: null,
+  setPendingCatalogId: (pendingCatalogId) => set({ pendingCatalogId }),
 }))

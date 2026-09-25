@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Tool, useEditorStore } from '../stores/editorStore'
 import { useGeometryStore } from '../stores/geometryStore'
 
-const TOOL_KEYS: Record<string, Tool> = { v: 'select', w: 'wall', o: 'opening', m: 'measure' }
+const TOOL_KEYS: Record<string, Tool> = { v: 'select', w: 'wall', o: 'opening', m: 'measure', f: 'furniture' }
 
 // Keys typed into the co-pilot chat or a number field belong to that field, not to the editor.
 export function isTypingTarget(target: EventTarget | null): boolean {
@@ -22,11 +22,18 @@ export function useEditorShortcuts() {
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const { selection, select } = useEditorStore.getState()
-        if (!selection) return
+        if (!selection || selection.kind === 'room') return        // rooms come from walls; they are not deleted
         e.preventDefault()
-        if (selection.kind === 'wall') useGeometryStore.getState().deleteWall(selection.id)
-        else useGeometryStore.getState().deleteOpening(selection.id)
+        const geometry = useGeometryStore.getState()
+        if (selection.kind === 'wall') geometry.deleteWall(selection.id)
+        else if (selection.kind === 'opening') geometry.deleteOpening(selection.id)
+        else geometry.deleteFurniture(selection.id)
         select(null)
+        return
+      }
+      if (e.key.toLowerCase() === 'r') {
+        const { selection } = useEditorStore.getState()
+        if (selection?.kind === 'furniture') useGeometryStore.getState().rotateFurniture(selection.id, 90)
         return
       }
       const tool = TOOL_KEYS[e.key.toLowerCase()]
