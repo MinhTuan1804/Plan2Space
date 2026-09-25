@@ -30,10 +30,20 @@ export interface Opening {
   version: number
 }
 
+// Absolute plan position; the item's front faces local -y at rotation 0 (CCW degrees).
+export interface FurnitureItem {
+  id: string
+  catalogId: string
+  x: number
+  y: number
+  rotationDeg: number
+}
+
 export interface GeometryDto {
   walls: Wall[]
   rooms: Room[]
   openings: Opening[]
+  furniture?: FurnitureItem[]
   version?: number
 }
 
@@ -55,6 +65,7 @@ export async function saveGeometry(
     walls: { id?: string; points: Point[]; thicknessMeters: number; heightMeters: number }[]
     rooms: { id?: string; points: Point[]; label: string }[]
     openings: { id?: string; wallId: string; type: string; position: Point; widthMeters: number; sillHeightMeters: number }[]
+    furniture: { id?: string; catalogId: string; x: number; y: number; rotationDeg: number }[]
   }
 ): Promise<{ version: number }> {
   const { data } = await apiClient.put(`/projects/${projectId}/geometry`, { baseVersion, ...payload })

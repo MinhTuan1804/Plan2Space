@@ -79,7 +79,7 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
     if (!file) return
     const current = useGeometryStore.getState()
     if ((current.walls.length > 0 || current.dirty) &&
-        !window.confirm('Importing replaces the whole current plan (walls, rooms, doors and windows). Continue?')) {
+        !window.confirm('Importing replaces the whole current plan (walls, rooms, doors, windows and furniture). Continue?')) {
       return
     }
     setActionError(null)

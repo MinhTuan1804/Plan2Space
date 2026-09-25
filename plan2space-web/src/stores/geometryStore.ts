@@ -1,12 +1,16 @@
 import { create } from 'zustand'
-import { deriveRooms, fetchGeometry, saveGeometry, GeometryDto, Wall, Room, Opening, Point } from '../services/geometryService'
-import { alongClamped, DEFAULT_WALL_HEIGHT_M, DEFAULT_WALL_THICKNESS_M, distanceAlong, newId } from '../lib/planGeometry'
+import { deriveRooms, fetchGeometry, saveGeometry, FurnitureItem, GeometryDto, Wall, Room, Opening, Point } from '../services/geometryService'
+import {
+  alongClamped, DEFAULT_WALL_HEIGHT_M, DEFAULT_WALL_THICKNESS_M, distanceAlong, interiorPoint, newId, pointInPolygon,
+} from '../lib/planGeometry'
+import { roomTypeOf } from '../lib/roomTypes'
 
 // What a calibration puts back if its save fails: the plan and whether it had unsaved edits.
 export interface PlanSnapshot {
   walls: Wall[]
   rooms: Room[]
   openings: Opening[]
+  furniture: FurnitureItem[]
   dirty: boolean
   wallsEdited: boolean
 }
@@ -16,6 +20,7 @@ export interface GeometryState {
   walls: Wall[]
   rooms: Room[]
   openings: Opening[]
+  furniture: FurnitureItem[]
   version: number
   saveConflict: boolean
   // Local edits not yet saved to the server (mirrored to a localStorage draft).
@@ -31,6 +36,12 @@ export interface GeometryState {
   moveWallPoint: (wallId: string, index: number, point: Point) => void
   updateOpening: (openingId: string, patch: Partial<Pick<Opening, 'position' | 'widthMeters' | 'type'>>) => void
   deleteOpening: (openingId: string) => void
+  addFurniture: (item: Omit<FurnitureItem, 'id'>) => string
+  moveFurniture: (id: string, x: number, y: number) => void
+  rotateFurniture: (id: string, deltaDeg: number) => void
+  deleteFurniture: (id: string) => void
+  replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[]) => void
+  updateRoomLabel: (roomId: string, label: string) => void
   scalePlan: (factor: number) => void
   snapshotPlan: () => PlanSnapshot
   restorePlan: (snapshot: PlanSnapshot) => void
@@ -46,7 +57,8 @@ interface Draft {
   walls: Wall[]
   rooms: Room[]
   openings: Opening[]
-  // Absent in drafts written before this field existed: treat those walls as edited.
+  // Absent in drafts written before these fields existed.
+  furniture?: FurnitureItem[]
   wallsEdited?: boolean
 }
 
@@ -93,9 +105,9 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
   let editSeq = 0
   const markEdited = () => {
     editSeq++
-    const { projectId, version, walls, rooms, openings, wallsEdited } = get()
+    const { projectId, version, walls, rooms, openings, furniture, wallsEdited } = get()
     set({ dirty: true })
-    writeDraft(projectId, { version, walls, rooms, openings, wallsEdited })
+    writeDraft(projectId, { version, walls, rooms, openings, furniture, wallsEdited })
   }
 
   return {
@@ -103,6 +115,7 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
     walls: [],
     rooms: [],
     openings: [],
+    furniture: [],
     version: 0,
     saveConflict: false,
     dirty: false,
@@ -116,18 +129,18 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       const draft = readDraft(projectId)
       if (draft && draft.version === version) {
         // Nobody saved since these edits were made: pick them back up.
-        set({ projectId, walls: draft.walls, rooms: draft.rooms, openings: draft.openings, version,
-              saveConflict: false, dirty: true, draftDiscarded: false, wallsEdited: draft.wallsEdited ?? true,
+        set({ projectId, walls: draft.walls, rooms: draft.rooms, openings: draft.openings, furniture: draft.furniture ?? [],
+              version, saveConflict: false, dirty: true, draftDiscarded: false, wallsEdited: draft.wallsEdited ?? true,
               roomsRefreshFailed: false })
         return
       }
       clearDraft(projectId)
-      set({ projectId, walls: dto.walls, rooms: dto.rooms, openings: dto.openings, version,
+      set({ projectId, walls: dto.walls, rooms: dto.rooms, openings: dto.openings, furniture: dto.furniture ?? [], version,
             saveConflict: false, dirty: false, draftDiscarded: draft !== null, wallsEdited: false, roomsRefreshFailed: false })
     },
 
     applyAiResult: (dto) => {
-      set({ walls: dto.walls, rooms: dto.rooms, openings: dto.openings })
+      set({ walls: dto.walls, rooms: dto.rooms, openings: dto.openings, furniture: dto.furniture ?? [] })
       markEdited()
     },
 
@@ -186,32 +199,69 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       markEdited()
     },
 
+    addFurniture: (item) => {
+      const id = newId()
+      set((state) => ({ furniture: [...state.furniture, { ...item, id }] }))
+      markEdited()
+      return id
+    },
+
+    moveFurniture: (id, x, y) => {
+      set((state) => ({ furniture: state.furniture.map((f) => (f.id === id ? { ...f, x, y } : f)) }))
+      markEdited()
+    },
+
+    rotateFurniture: (id, deltaDeg) => {
+      set((state) => ({ furniture: state.furniture.map((f) =>
+        f.id === id ? { ...f, rotationDeg: (((f.rotationDeg + deltaDeg) % 360) + 360) % 360 } : f) }))
+      markEdited()
+    },
+
+    deleteFurniture: (id) => {
+      set((state) => ({ furniture: state.furniture.filter((f) => f.id !== id) }))
+      markEdited()
+    },
+
+    replaceFurnitureInRoom: (room, items) => {
+      set((state) => ({ furniture: [
+        ...state.furniture.filter((f) => !pointInPolygon({ x: f.x, y: f.y }, room)),
+        ...items.map((i) => ({ ...i, id: newId() })),
+      ] }))
+      markEdited()
+    },
+
+    updateRoomLabel: (roomId, label) => {
+      set((state) => ({ rooms: state.rooms.map((r) => (r.id === roomId ? { ...r, label } : r)) }))
+      markEdited()
+    },
+
     snapshotPlan: () => {
-      const { walls, rooms, openings, dirty, wallsEdited } = get()
-      return { walls, rooms, openings, dirty, wallsEdited }
+      const { walls, rooms, openings, furniture, dirty, wallsEdited } = get()
+      return { walls, rooms, openings, furniture, dirty, wallsEdited }
     },
 
     restorePlan: (snapshot) => {
       editSeq++
-      set({ walls: snapshot.walls, rooms: snapshot.rooms, openings: snapshot.openings,
+      set({ walls: snapshot.walls, rooms: snapshot.rooms, openings: snapshot.openings, furniture: snapshot.furniture,
             dirty: snapshot.dirty, wallsEdited: snapshot.wallsEdited })
       const { projectId, version } = get()
       // The draft mirrors the restored plan: unsaved edits keep theirs, a clean plan has none.
       if (snapshot.dirty) {
-        writeDraft(projectId, { version, walls: snapshot.walls, rooms: snapshot.rooms,
-                                openings: snapshot.openings, wallsEdited: snapshot.wallsEdited })
+        writeDraft(projectId, { version, walls: snapshot.walls, rooms: snapshot.rooms, openings: snapshot.openings,
+                                furniture: snapshot.furniture, wallsEdited: snapshot.wallsEdited })
       } else {
         clearDraft(projectId)
       }
     },
 
     scalePlan: (factor) => {
-      // Calibration corrects measurements, not sizes: thickness, height and opening widths are real-world values.
+      // Calibration corrects measurements, not sizes: thickness, height, opening widths and furniture are real-world.
       const scale = (p: Point) => ({ x: p.x * factor, y: p.y * factor })
       set((state) => ({
         walls: state.walls.map((w) => ({ ...w, points: w.points.map(scale) })),
         rooms: state.rooms.map((r) => ({ ...r, points: r.points.map(scale) })),
         openings: state.openings.map((o) => ({ ...o, position: scale(o.position) })),
+        furniture: state.furniture.map((f) => ({ ...f, x: f.x * factor, y: f.y * factor })),
       }))
       markEdited()
     },
@@ -220,14 +270,22 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       // Save exactly what the user saw when they pressed Save: edits made while the rooms are derived or
       // the PUT is in flight are not in this save, so they must stay unsaved (dirty, with their draft).
       const seq = editSeq
-      const { walls, openings, version, wallsEdited } = get()
+      const { walls, openings, furniture, version, wallsEdited } = get()
       let rooms = get().rooms
       let roomsRefreshFailed = false
       if (wallsEdited) {
         try {
           const derived = await deriveRooms(walls)
           if (!Array.isArray(derived)) throw new Error('No rooms returned')
-          rooms = derived.map((r) => ({ id: newId(), points: r.points, label: r.label, version: 0 }))
+          const previous = rooms
+          rooms = derived.map((r) => {
+            // A re-derived room keeps the type the user gave the room it replaces. Automatic "Room N" names
+            // are not carried over: a room split in two would otherwise yield two rooms of the same name.
+            const probe = interiorPoint(r.points)
+            const before = previous.find((old) => pointInPolygon(probe, old.points))
+            const label = before && roomTypeOf(before.label) ? before.label : r.label
+            return { id: newId(), points: r.points, label, version: 0 }
+          })
         } catch {
           // The walls still save; the previous rooms stay until a later save derives them again.
           roomsRefreshFailed = true
@@ -237,7 +295,8 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
         const result = await saveGeometry(projectId, version, {
           walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters })),
           rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label })),
-          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters }))
+          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters })),
+          furniture: furniture.map((f) => ({ id: f.id, catalogId: f.catalogId, x: f.x, y: f.y, rotationDeg: f.rotationDeg })),
         })
         if (editSeq === seq) {
           clearDraft(projectId)
@@ -250,7 +309,7 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
         set({ version: result.version, saveConflict: false, dirty: true, wallsEdited: true, roomsRefreshFailed })
         const current = get()
         writeDraft(projectId, { version: result.version, walls: current.walls, rooms: current.rooms,
-                                openings: current.openings, wallsEdited: true })
+                                openings: current.openings, furniture: current.furniture, wallsEdited: true })
       } catch (err: any) {
         if (err?.response?.status === 409) {
           set({ saveConflict: true })
