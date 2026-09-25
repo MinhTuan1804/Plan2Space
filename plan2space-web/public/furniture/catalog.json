@@ -304,5 +304,16 @@
       "shower",
       "washing_machine"
     ]
+  },
+  "door": {
+    "frame": "/furniture/door_frame.glb",
+    "leaf": "/furniture/door_leaf.glb",
+    "widthM": 0.9700000584125519,
+    "heightM": 2.0599999721194213,
+    "depthM": 0.1813850328254804,
+    "leafWidthM": 0.8678668309003115,
+    "hingeX": -0.4428668040782213,
+    "hingeZ": 0.08489120413556218,
+    "attribution": ""
   }
 }

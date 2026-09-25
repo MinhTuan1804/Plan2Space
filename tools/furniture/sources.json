@@ -290,5 +290,11 @@
       "shower",
       "washing_machine"
     ]
+  },
+  "door": {
+    "source": "door.glb",
+    "frameNode": "Plane.002_Door_0",
+    "leafNode": "Plane.001",
+    "hingeSide": "min-x"
   }
 }
