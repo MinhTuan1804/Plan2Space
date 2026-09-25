@@ -37,7 +37,7 @@ public class StagingHttpClientTests
                 Encoding.UTF8, "application/json")
         });
 
-        var items = await Client(handler).SuggestAsync(Room, "Bedroom", CancellationToken.None);
+        var items = await Client(handler).SuggestAsync(Room, "Bedroom", null, null, CancellationToken.None);
 
         Assert.Equal("http://ai:8000/staging/suggest", handler.Request!.RequestUri!.ToString());
         var sent = JsonDocument.Parse(handler.Body!).RootElement;
@@ -54,7 +54,7 @@ public class StagingHttpClientTests
         {
             Content = new StringContent("""{"detail":"Room polygon is invalid"}""", Encoding.UTF8, "application/json")
         });
-        var ex = await Assert.ThrowsAsync<StagingRejectedException>(() => Client(handler).SuggestAsync(Room, "Bedroom", CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<StagingRejectedException>(() => Client(handler).SuggestAsync(Room, "Bedroom", null, null, CancellationToken.None));
         Assert.Contains("invalid", ex.Message);
     }
 
@@ -62,6 +62,6 @@ public class StagingHttpClientTests
     public async Task OtherFailures_AreUnavailable()
     {
         var handler = new StubHandler(new HttpResponseMessage(HttpStatusCode.InternalServerError));
-        await Assert.ThrowsAsync<StagingUnavailableException>(() => Client(handler).SuggestAsync(Room, "Bedroom", CancellationToken.None));
+        await Assert.ThrowsAsync<StagingUnavailableException>(() => Client(handler).SuggestAsync(Room, "Bedroom", null, null, CancellationToken.None));
     }
 }

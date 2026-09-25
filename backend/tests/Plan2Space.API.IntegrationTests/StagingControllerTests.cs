@@ -17,9 +17,16 @@ public class StagingControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
     private class FakeStagingClient : IStagingClient
     {
         private readonly Func<List<List<double>>, string, List<StagingItem>> _reply;
+        public List<StagingRequestItem>? SeenItems;
+        public List<List<double>>? SeenKeepClear;
         public FakeStagingClient(Func<List<List<double>>, string, List<StagingItem>> reply) => _reply = reply;
-        public Task<List<StagingItem>> SuggestAsync(List<List<double>> roomPolygon, string roomLabel, CancellationToken ct) =>
-            Task.FromResult(_reply(roomPolygon, roomLabel));
+        public Task<List<StagingItem>> SuggestAsync(List<List<double>> roomPolygon, string roomLabel,
+            List<StagingRequestItem>? items, List<List<double>>? keepClear, CancellationToken ct)
+        {
+            SeenItems = items;
+            SeenKeepClear = keepClear;
+            return Task.FromResult(_reply(roomPolygon, roomLabel));
+        }
     }
 
     private async Task<HttpClient> ClientAsync(string email, Func<List<List<double>>, string, List<StagingItem>> reply)
@@ -90,5 +97,37 @@ public class StagingControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
     {
         var response = await _factory.CreateClient().PostAsJsonAsync("/api/staging/suggest", new { roomPolygon = Square, roomLabel = "Bedroom" });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ItemsAndKeepClearZones_ArePassedToTheAiService()
+    {
+        var fake = new FakeStagingClient((_, _) => new List<StagingItem>());
+        var factory = _factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IStagingClient>(fake)));
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await _factory.RegisterAndLoginAsync(client, "staging-items@plan2space.dev"));
+
+        var res = await client.PostAsJsonAsync("/api/staging/suggest", new
+        {
+            roomPolygon = Square, roomLabel = "Phòng ngủ",
+            items = new[] { new { id = "bed_double", widthM = 1.6, depthM = 2.0, againstWall = true } },
+            keepClear = new[] { new[] { 2.0, 0.0, 0.9 } }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Equal("bed_double", fake.SeenItems![0].Id);
+        Assert.True(fake.SeenItems[0].AgainstWall);
+        Assert.Equal(0.9, fake.SeenKeepClear![0][2]);
+    }
+
+    [Fact]
+    public async Task ANonPositiveItemSize_Returns400()
+    {
+        var client = await ClientAsync("staging-bad-item@plan2space.dev", (_, _) => new());
+        var res = await client.PostAsJsonAsync("/api/staging/suggest", new
+        {
+            roomPolygon = Square, roomLabel = "x", items = new[] { new { id = "bed", widthM = 0.0, depthM = 2.0, againstWall = false } }
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
 }

@@ -22,12 +22,13 @@ public class StagingHttpClient : IStagingClient
 
     private record AiResponse([property: JsonPropertyName("items")] List<AiItem> Items);
 
-    public async Task<List<StagingItem>> SuggestAsync(List<List<double>> roomPolygon, string roomLabel, CancellationToken ct)
+    public async Task<List<StagingItem>> SuggestAsync(List<List<double>> roomPolygon, string roomLabel,
+        List<StagingRequestItem>? items, List<List<double>>? keepClear, CancellationToken ct)
     {
         HttpResponseMessage response;
         try
         {
-            response = await _http.PostAsJsonAsync("staging/suggest", new { roomPolygon, roomLabel }, Json, ct);
+            response = await _http.PostAsJsonAsync("staging/suggest", new { roomPolygon, roomLabel, items, keepClear = keepClear ?? new() }, Json, ct);
         }
         catch (Exception ex) when (ex is HttpRequestException || (ex is TaskCanceledException && !ct.IsCancellationRequested))
         {
