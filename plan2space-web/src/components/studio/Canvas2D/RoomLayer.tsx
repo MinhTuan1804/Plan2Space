@@ -1,6 +1,7 @@
 import React from 'react'
 import { Line, Text } from 'react-konva'
 import { useGeometryStore } from '../../../stores/geometryStore'
+import { useEditorStore } from '../../../stores/editorStore'
 import { Point } from '../../../services/geometryService'
 import { toScreen } from './canvasTransform'
 
@@ -24,11 +25,15 @@ function centre(points: Point[]): Point {
 // Room outlines (drawn under the walls) with their label and area.
 export function RoomLayer() {
   const rooms = useGeometryStore((s) => s.rooms)
+  const tool = useEditorStore((s) => s.tool)
+  const selection = useEditorStore((s) => s.selection)
+  const select = useEditorStore((s) => s.select)
 
   return (
     <>
       {rooms.map((room) => {
         const label = toScreen(centre(room.points))
+        const selected = selection?.kind === 'room' && selection.id === room.id
         return (
           <React.Fragment key={room.id}>
             <Line
@@ -38,9 +43,12 @@ export function RoomLayer() {
               })}
               closed
               fill="rgba(59, 130, 246, 0.08)"
-              stroke="rgba(59, 130, 246, 0.35)"
-              strokeWidth={1}
-              listening={false}
+              stroke={selected ? 'rgba(59, 130, 246, 0.9)' : 'rgba(59, 130, 246, 0.35)'}
+              strokeWidth={selected ? 2 : 1}
+              // Clicking a room (not a wall or furniture on top of it) opens its type and Auto-furnish panel.
+              listening={tool === 'select'}
+              onClick={() => select({ kind: 'room', id: room.id })}
+              onTap={() => select({ kind: 'room', id: room.id })}
             />
             <Text
               x={label.x}

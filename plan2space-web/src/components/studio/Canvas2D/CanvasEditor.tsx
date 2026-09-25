@@ -3,6 +3,7 @@ import { Stage, Layer, Line, Text } from 'react-konva'
 import { useMeasureTool } from './useMeasureTool'
 import { FurnitureLayer } from './FurnitureLayer'
 import { FurnitureLibrary } from './FurnitureLibrary'
+import { RoomPanel } from './RoomPanel'
 import { CalibrationDialog } from './CalibrationDialog'
 import { applyCalibration, retryUnderlayScale } from './applyCalibration'
 import { WallLayer } from './WallLayer'
@@ -24,6 +25,7 @@ export function CanvasEditor() {
   const [stagePos, setStagePos] = useState({ x: 80, y: 520 })
   const walls = useGeometryStore((s) => s.walls)
   const tool = useEditorStore((s) => s.tool)
+  const selection = useEditorStore((s) => s.selection)
   const wallTool = useWallTool()
   const measureTool = useMeasureTool()
   const [calibrationError, setCalibrationError] = useState<string | null>(null)
@@ -245,6 +247,7 @@ export function CanvasEditor() {
         </Layer>
       </Stage>
       {tool === 'furniture' && <FurnitureLibrary />}
+      {tool === 'select' && selection?.kind === 'room' && <RoomPanel roomId={selection.id} />}
       {tool === 'measure' && measureTool.measuredM !== null && (
         <CalibrationDialog
           measuredM={measureTool.measuredM}
