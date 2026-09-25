@@ -15,7 +15,8 @@ public class GeometryController : ControllerBase
     public GeometryController(IMediator mediator) => _mediator = mediator;
     private Guid CurrentUserId => Guid.Parse(User.FindFirst("sub")!.Value);
 
-    public record SaveRequest(uint BaseVersion, List<WallInput> Walls, List<RoomInput> Rooms, List<OpeningInput> Openings);
+    public record SaveRequest(uint BaseVersion, List<WallInput> Walls, List<RoomInput> Rooms, List<OpeningInput> Openings,
+        List<FurnitureInput>? Furniture = null);
 
     [HttpGet]
     public async Task<IActionResult> Get(Guid projectId)
@@ -27,5 +28,5 @@ public class GeometryController : ControllerBase
     [HttpPut]
     public Task<IActionResult> Save(Guid projectId, SaveRequest req) =>
         GeometrySaveResults.RunAsync(this, () => _mediator.Send(new SaveGeometryCommand(
-            projectId, CurrentUserId, req.BaseVersion, req.Walls, req.Rooms, req.Openings)));
+            projectId, CurrentUserId, req.BaseVersion, req.Walls, req.Rooms, req.Openings, req.Furniture)));
 }

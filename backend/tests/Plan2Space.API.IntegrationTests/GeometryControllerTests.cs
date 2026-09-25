@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Xunit;
 
 public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFactory>
@@ -176,4 +177,61 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
     private record IdBody(Guid Id);
     private record OpeningBody(Guid Id, Guid WallId);
     private record GeometryBody(List<IdBody> Walls, List<IdBody> Rooms, List<OpeningBody> Openings, uint Version);
+
+    private static object[] OneWall() => new object[]
+    {
+        new { points = new[] { new { x = 0.0, y = 0.0 }, new { x = 5.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 2.8 }
+    };
+
+    [Fact]
+    public async Task Furniture_RoundTripsThroughSave()
+    {
+        var (client, project) = await AuthedProjectAsync($"furn-{Guid.NewGuid():N}@plan2space.dev");
+        var put = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, walls = OneWall(), rooms = Array.Empty<object>(), openings = Array.Empty<object>(),
+            furniture = new[] { new { catalogId = "bed_double", x = 2.0, y = 1.5, rotationDeg = 90.0 } }
+        });
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+
+        var body = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
+        var item = body.GetProperty("furniture")[0];
+        Assert.Equal("bed_double", item.GetProperty("catalogId").GetString());
+        Assert.Equal(2.0, item.GetProperty("x").GetDouble());
+        Assert.Equal(90.0, item.GetProperty("rotationDeg").GetDouble());
+    }
+
+    [Fact]
+    public async Task ASaveWithoutAFurnitureList_LeavesFurnitureAlone()
+    {
+        // The co-pilot saves walls/rooms/openings only; a furnished plan must not lose its furniture.
+        var (client, project) = await AuthedProjectAsync($"furn-keep-{Guid.NewGuid():N}@plan2space.dev");
+        await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, walls = OneWall(), rooms = Array.Empty<object>(), openings = Array.Empty<object>(),
+            furniture = new[] { new { catalogId = "sofa", x = 1.0, y = 1.0, rotationDeg = 0.0 } }
+        });
+        await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 1, walls = OneWall(), rooms = Array.Empty<object>(), openings = Array.Empty<object>()
+        });
+
+        var body = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
+        Assert.Equal(1, body.GetProperty("furniture").GetArrayLength());
+    }
+
+    [Theory]
+    [InlineData("", 1.0)]
+    [InlineData("Bed Double!", 1.0)]
+    [InlineData("bed_double", double.NaN)]
+    public async Task InvalidFurniture_Returns400(string catalogId, double x)
+    {
+        var (client, project) = await AuthedProjectAsync($"furn-bad-{Guid.NewGuid():N}@plan2space.dev");
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, walls = OneWall(), rooms = Array.Empty<object>(), openings = Array.Empty<object>(),
+            furniture = new[] { new { catalogId, x = double.IsNaN(x) ? (double?)null : x, y = 1.0, rotationDeg = 0.0 } }
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
 }

@@ -26,7 +26,7 @@ public class CopilotIntentHttpClientTests
 
     private static readonly GeometryDto Geometry = new(
         new List<WallDto> { new(Guid.NewGuid(), new List<GeometryPointDto> { new(0, 0), new(5, 0) }, 0.2, 2.8, 1) },
-        new List<RoomDto>(), new List<OpeningDto>(), 1);
+        new List<RoomDto>(), new List<OpeningDto>(), new List<FurnitureDto>(), 1);
 
     [Fact]
     public async Task PostsMessageAndCamelCaseGeometry_AndReadsTheIntent()

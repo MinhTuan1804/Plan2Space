@@ -35,6 +35,7 @@ public class InternalGeometryController : ControllerBase
             .Where(p => p.Id == projectId).Select(p => (Guid?)p.OwnerId).FirstOrDefaultAsync();
         if (owner is null) return NotFound();
         return await GeometrySaveResults.RunAsync(this, () => _mediator.Send(new SaveGeometryCommand(
-            projectId, owner.Value, req.BaseVersion, req.Walls, req.Rooms, req.Openings)));
+            // An import replaces the whole plan, furniture included.
+            projectId, owner.Value, req.BaseVersion, req.Walls, req.Rooms, req.Openings, req.Furniture ?? new List<FurnitureInput>())));
     }
 }

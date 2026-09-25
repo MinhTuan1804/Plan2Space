@@ -16,6 +16,7 @@ public class Plan2SpaceDbContext : DbContext, IPlan2SpaceDbContext
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<Opening> Openings => Set<Opening>();
     public DbSet<Asset3D> Assets3D => Set<Asset3D>();
+    public DbSet<FurnitureItem> Furniture => Set<FurnitureItem>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -38,5 +39,9 @@ public class Plan2SpaceDbContext : DbContext, IPlan2SpaceDbContext
         b.Entity<Project>().HasMany(p => p.Rooms).WithOne(r => r.Project).HasForeignKey(r => r.ProjectId);
         b.Entity<Project>().HasMany(p => p.Openings).WithOne(o => o.Project).HasForeignKey(o => o.ProjectId);
         b.Entity<Project>().HasMany(p => p.Files).WithOne(f => f.Project).HasForeignKey(f => f.ProjectId);
+
+        b.Entity<FurnitureItem>().Property(f => f.CatalogId).HasMaxLength(64);
+        b.Entity<FurnitureItem>().Property(f => f.Version).IsConcurrencyToken();
+        b.Entity<Project>().HasMany(p => p.Furniture).WithOne(f => f.Project).HasForeignKey(f => f.ProjectId);
     }
 }

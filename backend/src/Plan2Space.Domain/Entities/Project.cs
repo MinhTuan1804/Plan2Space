@@ -13,4 +13,5 @@ public class Project
     public ICollection<Wall> Walls { get; set; } = new List<Wall>();
     public ICollection<Room> Rooms { get; set; } = new List<Room>();
     public ICollection<Opening> Openings { get; set; } = new List<Opening>();
+    public ICollection<FurnitureItem> Furniture { get; set; } = new List<FurnitureItem>();
 }

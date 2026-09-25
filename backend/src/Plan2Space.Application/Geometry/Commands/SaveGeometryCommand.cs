@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
@@ -12,6 +13,8 @@ public record PointDto(double X, double Y);
 public record WallInput(List<PointDto> Points, double ThicknessMeters, double HeightMeters, Guid? Id = null);
 public record RoomInput(List<PointDto> Points, string Label, Guid? Id = null);
 public record OpeningInput(Guid WallId, string Type, PointDto Position, double WidthMeters, double SillHeightMeters);
+// Absolute plan position; front faces local -y at rotation 0 (CCW degrees).
+public record FurnitureInput(string CatalogId, double X, double Y, double RotationDeg, Guid? Id = null);
 
 public class GeometryConflictException : Exception { }
 
@@ -29,10 +32,13 @@ public class RoomOverlapException : Exception
 
 public record SaveGeometryCommand(
     Guid ProjectId, Guid RequestingUserId, uint BaseVersion,
-    List<WallInput> Walls, List<RoomInput> Rooms, List<OpeningInput> Openings) : IRequest<uint>;
+    List<WallInput> Walls, List<RoomInput> Rooms, List<OpeningInput> Openings,
+    List<FurnitureInput>? Furniture = null) : IRequest<uint>;
 
 public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
 {
+    public const int MaxFurniture = 2000;
+    private static readonly Regex CatalogIdShape = new("^[a-z0-9_-]{1,64}$", RegexOptions.Compiled);
     private readonly IPlan2SpaceDbContext _db;
     private static readonly GeometryFactory Factory = new();
 
@@ -41,7 +47,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
     public async Task<uint> Handle(SaveGeometryCommand cmd, CancellationToken ct)
     {
         var project = await _db.Projects
-            .Include(p => p.Walls).Include(p => p.Rooms).Include(p => p.Openings)
+            .Include(p => p.Walls).Include(p => p.Rooms).Include(p => p.Openings).Include(p => p.Furniture)
             .FirstOrDefaultAsync(p => p.Id == cmd.ProjectId && p.OwnerId == cmd.RequestingUserId, ct)
             ?? throw new KeyNotFoundException();
 
@@ -126,6 +132,36 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
         _db.Walls.AddRange(keptWalls.Where(w => !existingWalls.ContainsKey(w.Id)));
         _db.Rooms.AddRange(keptRooms.Where(r => !existingRooms.ContainsKey(r.Id)));
         _db.Openings.AddRange(newOpenings);
+
+        // Absent list = untouched (the co-pilot); a list replaces the plan's furniture.
+        if (cmd.Furniture is not null)
+        {
+            if (cmd.Furniture.Count > MaxFurniture)
+                throw new GeometryValidationException($"A plan can hold at most {MaxFurniture} furniture items");
+            var existingFurniture = project.Furniture.ToDictionary(f => f.Id);
+            var takenFurnitureIds = await TakenElsewhereAsync(_db.Furniture, cmd.Furniture.Select(f => f.Id), existingFurniture.Keys, ct);
+            var usedFurnitureIds = new HashSet<Guid>();
+            var keptFurniture = new List<FurnitureItem>();
+            foreach (var f in cmd.Furniture)
+            {
+                if (f is null || f.CatalogId is null || !CatalogIdShape.IsMatch(f.CatalogId))
+                    throw new GeometryValidationException("A furniture catalogId must be 1-64 characters of a-z, 0-9, _ or -");
+                if (!double.IsFinite(f.X) || !double.IsFinite(f.Y) || !double.IsFinite(f.RotationDeg))
+                    throw new GeometryValidationException("Furniture position and rotation must be finite numbers");
+                var item = f.Id is Guid id && existingFurniture.TryGetValue(id, out var found) && usedFurnitureIds.Add(id)
+                    ? found
+                    : new FurnitureItem { Id = FreshOrRequested(f.Id, takenFurnitureIds, existingFurniture.Keys, usedFurnitureIds), ProjectId = project.Id };
+                item.CatalogId = f.CatalogId;
+                item.X = f.X;
+                item.Y = f.Y;
+                item.RotationDeg = f.RotationDeg;
+                item.Version = nextVersion;
+                keptFurniture.Add(item);
+            }
+            var keptFurnitureIds = keptFurniture.Select(f => f.Id).ToHashSet();
+            _db.Furniture.RemoveRange(project.Furniture.Where(f => !keptFurnitureIds.Contains(f.Id)));
+            _db.Furniture.AddRange(keptFurniture.Where(f => !existingFurniture.ContainsKey(f.Id)));
+        }
 
         project.GeometryVersion = nextVersion;
         project.UpdatedAt = DateTimeOffset.UtcNow;

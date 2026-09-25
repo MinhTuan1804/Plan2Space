@@ -15,5 +15,6 @@ public interface IPlan2SpaceDbContext
     DbSet<Room> Rooms { get; }
     DbSet<Opening> Openings { get; }
     DbSet<Asset3D> Assets3D { get; }
+    DbSet<FurnitureItem> Furniture { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

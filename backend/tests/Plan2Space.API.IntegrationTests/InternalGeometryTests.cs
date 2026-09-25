@@ -61,4 +61,25 @@ public class InternalGeometryTests : IClassFixture<Plan2SpaceWebApplicationFacto
         var res = await ServiceClient().GetAsync($"/internal/projects/{Guid.NewGuid()}/geometry/version");
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
+
+    [Fact]
+    public async Task AnImport_ReplacesTheFurnitureToo()
+    {
+        // The worker's body has no furniture key; an import replaces the whole plan, so furniture goes.
+        var owner = _factory.CreateClient();
+        owner.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            await _factory.RegisterAndLoginAsync(owner, "import-clears-furniture@plan2space.dev"));
+        var project = await _factory.CreateProjectAsync(owner, "Furnished");
+        await owner.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, walls = Array.Empty<object>(), rooms = Array.Empty<object>(), openings = Array.Empty<object>(),
+            furniture = new[] { new { catalogId = "sofa", x = 1.0, y = 1.0, rotationDeg = 0.0 } }
+        });
+
+        var put = await ServiceClient().PutAsJsonAsync($"/internal/projects/{project.Id}/geometry", Payload(1));
+
+        Assert.True(put.IsSuccessStatusCode);
+        var body = await owner.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
+        Assert.Equal(0, body.GetProperty("furniture").GetArrayLength());
+    }
 }
