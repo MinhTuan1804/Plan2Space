@@ -4,6 +4,7 @@ import { useMeasureTool } from './useMeasureTool'
 import { FurnitureLayer } from './FurnitureLayer'
 import { FurnitureLibrary } from './FurnitureLibrary'
 import { RoomPanel } from './RoomPanel'
+import { DoorPanel } from './DoorPanel'
 import { CalibrationDialog } from './CalibrationDialog'
 import { applyCalibration, retryUnderlayScale } from './applyCalibration'
 import { WallLayer } from './WallLayer'
@@ -248,6 +249,7 @@ export function CanvasEditor() {
       </Stage>
       {tool === 'furniture' && <FurnitureLibrary />}
       {tool === 'select' && selection?.kind === 'room' && <RoomPanel roomId={selection.id} />}
+      {tool === 'select' && selection?.kind === 'opening' && <DoorPanel openingId={selection.id} />}
       {tool === 'measure' && measureTool.measuredM !== null && (
         <CalibrationDialog
           measuredM={measureTool.measuredM}

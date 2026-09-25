@@ -28,6 +28,7 @@ export interface Opening {
   widthMeters: number
   sillHeightMeters: number
   version: number
+  swingFlipped?: boolean      // the door swings the other way than the automatic choice
 }
 
 // Absolute plan position; the item's front faces local -y at rotation 0 (CCW degrees).
@@ -64,7 +65,7 @@ export async function saveGeometry(
   payload: {
     walls: { id?: string; points: Point[]; thicknessMeters: number; heightMeters: number }[]
     rooms: { id?: string; points: Point[]; label: string }[]
-    openings: { id?: string; wallId: string; type: string; position: Point; widthMeters: number; sillHeightMeters: number }[]
+    openings: { id?: string; wallId: string; type: string; position: Point; widthMeters: number; sillHeightMeters: number; swingFlipped?: boolean }[]
     furniture: { id?: string; catalogId: string; x: number; y: number; rotationDeg: number }[]
   }
 ): Promise<{ version: number }> {

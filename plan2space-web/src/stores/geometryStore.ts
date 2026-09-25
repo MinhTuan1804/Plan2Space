@@ -40,6 +40,7 @@ export interface GeometryState {
   moveFurniture: (id: string, x: number, y: number) => void
   rotateFurniture: (id: string, deltaDeg: number) => void
   deleteFurniture: (id: string) => void
+  flipDoorSwing: (openingId: string) => void
   replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[]) => void
   updateRoomLabel: (roomId: string, label: string) => void
   scalePlan: (factor: number) => void
@@ -206,6 +207,11 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       return id
     },
 
+    flipDoorSwing: (openingId) => {
+      set((state) => ({ openings: state.openings.map((o) => (o.id === openingId ? { ...o, swingFlipped: !o.swingFlipped } : o)) }))
+      markEdited()
+    },
+
     moveFurniture: (id, x, y) => {
       set((state) => ({ furniture: state.furniture.map((f) => (f.id === id ? { ...f, x, y } : f)) }))
       markEdited()
@@ -295,7 +301,7 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
         const result = await saveGeometry(projectId, version, {
           walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters })),
           rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label })),
-          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters })),
+          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters, swingFlipped: !!o.swingFlipped })),
           furniture: furniture.map((f) => ({ id: f.id, catalogId: f.catalogId, x: f.x, y: f.y, rotationDeg: f.rotationDeg })),
         })
         if (editSeq === seq) {

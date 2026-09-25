@@ -2,7 +2,8 @@ import React, { Component, ReactNode, Suspense, useMemo } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
-import { Opening, Wall } from '../../../services/geometryService'
+import { Opening, Room, Wall } from '../../../services/geometryService'
+import { doorSwingSign } from '../../../lib/doorSwing'
 import { CatalogDoor, useCatalog } from '../../../services/catalogService'
 import { segmentAngleAt, WINDOW_HEIGHT_M } from './cutOpenings'
 import { doorLayout, windowParts } from './openingFixtures'
@@ -51,8 +52,10 @@ function WindowFrame({ width, thickness }: { width: number; thickness: number })
   )
 }
 
-function OpeningModel({ opening, wall, door }: { opening: Opening; wall: Wall; door: CatalogDoor | null | undefined }) {
-  const angle = segmentAngleAt(wall, opening.position)
+function OpeningModel({ opening, wall, rooms, door }: { opening: Opening; wall: Wall; rooms: Room[]; door: CatalogDoor | null | undefined }) {
+  // The door model swings towards the wall's right; turning it half round swings it into the room on the left.
+  const swingsLeft = opening.type === 'Door' && doorSwingSign(opening, wall, rooms) === 1
+  const angle = segmentAngleAt(wall, opening.position) + (swingsLeft ? Math.PI : 0)
   return (
     <group position={[opening.position.x, opening.position.y, opening.sillHeightMeters]} rotation={[0, 0, angle]}>
       {opening.type === 'Window'
@@ -72,12 +75,13 @@ function OpeningModel({ opening, wall, door }: { opening: Opening; wall: Wall; d
 export function OpeningModels() {
   const walls = useGeometryStore((s) => s.walls)
   const openings = useGeometryStore((s) => s.openings)
+  const rooms = useGeometryStore((s) => s.rooms)
   const catalog = useCatalog()
   return (
     <>
       {openings.map((o) => {
         const wall = walls.find((w) => w.id === o.wallId)
-        return wall ? <OpeningModel key={o.id} opening={o} wall={wall} door={catalog?.door} /> : null
+        return wall ? <OpeningModel key={o.id} opening={o} wall={wall} rooms={rooms} door={catalog?.door} /> : null
       })}
     </>
   )

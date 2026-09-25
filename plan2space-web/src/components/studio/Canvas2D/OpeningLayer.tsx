@@ -1,9 +1,10 @@
 import React from 'react'
-import { Rect } from 'react-konva'
+import { Line, Rect } from 'react-konva'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { Opening, Wall } from '../../../services/geometryService'
 import { PIXELS_PER_METER, toScreen } from './canvasTransform'
+import { doorSwingArcs, doorSwingSign } from '../../../lib/doorSwing'
 
 const SYMBOL_DEPTH_PX = 8
 
@@ -30,12 +31,24 @@ function screenAngleDeg(opening: Opening, walls: Wall[]): number {
 export function OpeningLayer() {
   const openings = useGeometryStore((s) => s.openings)
   const walls = useGeometryStore((s) => s.walls)
+  const rooms = useGeometryStore((s) => s.rooms)
   const tool = useEditorStore((s) => s.tool)
   const selection = useEditorStore((s) => s.selection)
   const select = useEditorStore((s) => s.select)
 
   return (
     <>
+      {/* Door swings: the leaf and the quarter circle it sweeps, on the side it opens to. */}
+      {openings.filter((o) => o.type === 'Door').flatMap((o) => {
+        const wall = walls.find((w) => w.id === o.wallId)
+        if (!wall) return []
+        return doorSwingArcs(o, wall, doorSwingSign(o, wall, rooms)).map((arc, i) => {
+          const hinge = toScreen(arc.hinge)
+          const pts = arc.points.flatMap((p) => { const s = toScreen(p); return [s.x, s.y] })
+          return <Line key={`${o.id}-${i}`} points={[hinge.x, hinge.y, ...pts]} stroke="#f59e0b" strokeWidth={1}
+                       dash={[4, 3]} listening={false} />
+        })
+      })}
       {openings.map((o) => {
         const center = toScreen(o.position)
         const width = o.widthMeters * PIXELS_PER_METER

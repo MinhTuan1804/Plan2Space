@@ -1,4 +1,7 @@
 import { DOOR_HEIGHT_M } from './cutOpenings'
+import { DOUBLE_DOOR_MIN_WIDTH_M } from '../../../lib/doorSwing'
+
+export { DOUBLE_DOOR_MIN_WIDTH_M }
 
 // The catalog's door model (glTF axes: x across the doorway, y up, z through the wall; metres).
 export interface DoorSpec {
@@ -21,8 +24,6 @@ export interface DoorLayout {
   frameScale: [number, number, number]
   leaves: LeafPlacement[]
 }
-
-export const DOUBLE_DOOR_MIN_WIDTH_M = 1.2
 
 // The frame is stretched to the opening (width, cut height, wall thickness). A narrow doorway takes the
 // model's single leaf; a wide one takes two mirrored leaves hinged on either jamb.
