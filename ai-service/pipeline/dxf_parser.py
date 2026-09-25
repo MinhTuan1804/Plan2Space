@@ -173,6 +173,31 @@ def _join_t_ends(walls: list[dict]) -> None:
                     break
 
 
+# A line across a paired wall's thickness at its centreline closes the wall's outline (at every door jamb
+# and wall end); it is drawing, not a wall.
+END_CAP_TOLERANCE_M = 0.02
+
+
+def _caps_a_wall(seg, paired: list[dict]) -> bool:
+    (ax, ay), (bx, by) = seg
+    length = math.hypot(bx - ax, by - ay)
+    if length == 0:
+        return True
+    mid = ((ax + bx) / 2, (ay + by) / 2)
+    for wall in paired:
+        (cx, cy), (dx, dy) = wall["points"][0], wall["points"][-1]
+        wall_length = math.hypot(dx - cx, dy - cy)
+        if wall_length == 0 or abs(length - wall["thickness_m"]) > END_CAP_TOLERANCE_M:
+            continue
+        across = abs((bx - ax) * (dx - cx) + (by - ay) * (dy - cy)) / (length * wall_length)
+        if across > 0.1:                      # not perpendicular to this wall
+            continue
+        t = max(0.0, min(1.0, ((mid[0] - cx) * (dx - cx) + (mid[1] - cy) * (dy - cy)) / wall_length ** 2))
+        if math.hypot(mid[0] - cx - t * (dx - cx), mid[1] - cy - t * (dy - cy)) <= END_CAP_TOLERANCE_M:
+            return True
+    return False
+
+
 def _pair_wall_faces(walls: list[dict]) -> list[dict]:
     """Real CAD plans draw a wall as its two face lines; merge each face pair into one centreline wall whose
     thickness is the gap. Lines without a partner stay as (default-thickness) centreline walls."""
@@ -202,8 +227,9 @@ def _pair_wall_faces(walls: list[dict]) -> list[dict]:
             continue
         used.update((i, j))
         out.append({"points": centreline, "thickness_m": round(gap, 6), "height_m": DEFAULT_WALL_HEIGHT_M, "_paired": True})
+    paired = list(out)
     out.extend({"points": [list(a), list(b)], "thickness_m": DEFAULT_WALL_THICKNESS_M, "height_m": DEFAULT_WALL_HEIGHT_M}
-               for k, (a, b) in enumerate(segs) if k not in used)
+               for k, (a, b) in enumerate(segs) if k not in used and not _caps_a_wall((a, b), paired))
     _join_t_ends(out)
     for wall in out:
         wall.pop("_paired", None)

@@ -19,10 +19,12 @@ function unit(a: Point, b: Point): Point {
   return { x: (b.x - a.x) / length, y: (b.y - a.y) / length }
 }
 
-function endExtension(end: Point, direction: Point, wall: Wall, walls: Wall[]): number {
+function endExtension(end: Point, direction: Point, wall: Wall, walls: Wall[], length: number): number {
   let extension = 0
   for (const other of walls) {
     if (other.id === wall.id) continue
+    // No longer than the other wall is thick: a line capping its end (older DXF imports), not a wall.
+    if (length <= other.thicknessMeters + TOUCH_TOLERANCE_M) continue
     for (let i = 0; i < other.points.length - 1; i++) {
       const a = other.points[i]
       const b = other.points[i + 1]
@@ -41,8 +43,10 @@ export function wallEndExtensions(wall: Wall, walls: Wall[]): [number, number] {
   const pts = wall.points
   if (pts.length < 2) return [0, 0]
   const n = pts.length
+  let length = 0
+  for (let i = 0; i < n - 1; i++) length += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y)
   return [
-    endExtension(pts[0], unit(pts[1], pts[0]), wall, walls),
-    endExtension(pts[n - 1], unit(pts[n - 2], pts[n - 1]), wall, walls),
+    endExtension(pts[0], unit(pts[1], pts[0]), wall, walls, length),
+    endExtension(pts[n - 1], unit(pts[n - 2], pts[n - 1]), wall, walls, length),
   ]
 }

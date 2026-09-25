@@ -35,4 +35,10 @@ describe('wall joints', () => {
     expect(g.boundingBox!.min.x).toBeCloseTo(-0.1, 6)
     expect(g.boundingBox!.max.x).toBeCloseTo(4.15, 6)
   })
+
+  it("a line capping another wall's end (older DXF imports) is not stretched through that wall", () => {
+    const main = wall('m', [0, 0], [4, 0], 0.22)
+    const cap = wall('c', [4, -0.11], [4, 0.11])          // 0.22 long, across the main wall's end
+    expect(wallEndExtensions(cap, [main, cap])).toEqual([0, 0])
+  })
 })

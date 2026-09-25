@@ -76,3 +76,14 @@ def test_unitless_drawing_in_millimetres_is_detected(tmp_path):
     walls = parse_dxf(_dxf(tmp_path, [((0, 0), (8000, 0)), ((8000, 0), (8000, 6000))], insunits=0))["walls"]
     xs = [p[0] for w in walls for p in w["points"]]
     assert max(xs) == pytest.approx(8.0)
+
+
+def test_the_line_capping_a_wall_end_is_not_a_wall_of_its_own():
+    # CAD closes a wall's two face lines with a short line across its thickness at each end (at every
+    # door jamb). Taken as a wall, it became a 0.2 m block sticking out into the doorway in 3D.
+    from pipeline.dxf_parser import _pair_wall_faces
+    faces_and_caps = [{"points": [[0, 0], [4, 0]]}, {"points": [[0, 0.22], [4, 0.22]]},
+                      {"points": [[4, 0], [4, 0.22]]}, {"points": [[0, 0.22], [0, 0]]}]
+    walls = _pair_wall_faces(faces_and_caps)
+    assert len(walls) == 1
+    assert walls[0]["thickness_m"] == 0.22
