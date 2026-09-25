@@ -259,4 +259,28 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
         var relational = Microsoft.EntityFrameworkCore.Infrastructure.RelationalOptionsExtension.Extract(options);
         Assert.Equal(Microsoft.EntityFrameworkCore.QuerySplittingBehavior.SplitQuery, relational.QuerySplittingBehavior);
     }
+
+    // The user can flip which way a door swings; the choice is saved with the plan. Absent means automatic.
+    [Fact]
+    public async Task DoorSwingFlip_RoundTrips_AndDefaultsToAutomatic()
+    {
+        var (client, project) = await AuthedProjectAsync($"swing-{Guid.NewGuid():N}@plan2space.dev");
+        var wallId = Guid.NewGuid();
+        object Save(uint baseVersion, bool? flipped) => new
+        {
+            baseVersion,
+            walls = new[] { new { id = wallId, points = new[] { new { x = 0.0, y = 0.0 }, new { x = 5.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 2.8 } },
+            rooms = Array.Empty<object>(),
+            openings = new object[] { flipped is bool f
+                ? new { wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 0.9, sillHeightMeters = 0.0, swingFlipped = f }
+                : new { wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 0.9, sillHeightMeters = 0.0 } }
+        };
+        (await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", Save(0, true))).EnsureSuccessStatusCode();
+        var door = (await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry")).GetProperty("openings")[0];
+        Assert.True(door.GetProperty("swingFlipped").GetBoolean());
+
+        (await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", Save(1, null))).EnsureSuccessStatusCode();
+        door = (await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry")).GetProperty("openings")[0];
+        Assert.False(door.GetProperty("swingFlipped").GetBoolean());
+    }
 }

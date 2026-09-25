@@ -38,7 +38,7 @@ public class CopilotControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
     }
 
     // One 5m wall along y=0 with a door at x=2, plus a 4x4 room above it (fresh ids per project).
-    private static async Task SeedAsync(HttpClient client, Guid projectId)
+    private static async Task SeedAsync(HttpClient client, Guid projectId, bool doorSwingFlipped = false)
     {
         var wallId = Guid.NewGuid();
         var roomId = Guid.NewGuid();
@@ -47,7 +47,7 @@ public class CopilotControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
             baseVersion = 0,
             walls = new[] { new { id = wallId, points = new[] { new { x = 0.0, y = 0.0 }, new { x = 5.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 2.8 } },
             rooms = new[] { new { id = roomId, label = "Kitchen", points = new[] { new { x = 0.0, y = 1.0 }, new { x = 4.0, y = 1.0 }, new { x = 4.0, y = 5.0 }, new { x = 0.0, y = 5.0 }, new { x = 0.0, y = 1.0 } } } },
-            openings = new[] { new { wallId = wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 0.9, sillHeightMeters = 0.0 } }
+            openings = new[] { new { wallId = wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 0.9, sillHeightMeters = 0.0, swingFlipped = doorSwingFlipped } }
         });
         res.EnsureSuccessStatusCode();
     }
@@ -181,5 +181,20 @@ public class CopilotControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
             _ => throw new CopilotUnavailableException("ai-service unreachable"));
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, (await SendAsync(client, projectId, "move a wall")).StatusCode);
+    }
+
+    // The co-pilot rebuilds the opening list from the current plan: a door the user flipped stays flipped.
+    [Fact]
+    public async Task ACopilotEdit_KeepsADoorsFlippedSwing()
+    {
+        var (client, projectId) = await ClientWithIntentAsync("copilot-swing@plan2space.dev",
+            g => Intent("add_opening", new { wall_id = g.Walls[0].Id.ToString(), type = "window", offset_m = 4.0, width_m = 1.2 }));
+        await SeedAsync(client, projectId, doorSwingFlipped: true);
+
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, projectId, "add a window")).StatusCode);
+
+        var door = (await GeometryAsync(client, projectId)).GetProperty("openings").EnumerateArray()
+            .Single(o => o.GetProperty("type").GetString() == "Door");
+        Assert.True(door.GetProperty("swingFlipped").GetBoolean());
     }
 }

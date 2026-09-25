@@ -12,7 +12,7 @@ public record PointDto(double X, double Y);
 // so openings (which reference WallId) stay attached. Omitted id = new element.
 public record WallInput(List<PointDto> Points, double ThicknessMeters, double HeightMeters, Guid? Id = null);
 public record RoomInput(List<PointDto> Points, string Label, Guid? Id = null);
-public record OpeningInput(Guid WallId, string Type, PointDto Position, double WidthMeters, double SillHeightMeters);
+public record OpeningInput(Guid WallId, string Type, PointDto Position, double WidthMeters, double SillHeightMeters, bool SwingFlipped = false);
 // Absolute plan position; front faces local -y at rotation 0 (CCW degrees).
 public record FurnitureInput(string CatalogId, double X, double Y, double RotationDeg, Guid? Id = null);
 
@@ -121,6 +121,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
                 Position = Factory.CreatePoint(new Coordinate(o.Position.X, o.Position.Y)),
                 WidthMeters = o.WidthMeters,
                 SillHeightMeters = o.SillHeightMeters,
+                SwingFlipped = o.SwingFlipped,
                 Version = nextVersion
             };
         }).ToList();

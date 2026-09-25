@@ -14,5 +14,6 @@ public class Opening
     public Point Position { get; set; } = default!;   // point on the wall centerline
     public double WidthMeters { get; set; }
     public double SillHeightMeters { get; set; }       // 0 for doors
+    public bool SwingFlipped { get; set; }             // a door swings to the other side than the automatic choice
     public uint Version { get; set; } = 1;
 }
