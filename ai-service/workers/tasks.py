@@ -10,7 +10,7 @@ from pipeline.vectorize import vectorize_raster
 from pipeline.gnn_healing import heal_wall_topology
 from pipeline.symbol_detect import detect_symbols
 from pipeline.serializer import serialize_pipeline_result
-from pipeline.rooms import rooms_from_walls
+from pipeline.rooms import label_rooms, rooms_from_walls
 from pipeline.scale import estimate_metres_per_pixel, to_project_space
 from pipeline.raster_input import load_page_image
 from pipeline.api_client import (download_from_minio, push_geometry_to_api, report_error, report_final_state,
@@ -64,9 +64,10 @@ def vectorize_job(job_id: str, project_id: str, file_object_key: str) -> dict:
         if is_dxf:
             parsed = parse_dxf(local_path)
             # A DXF states its openings as gaps in the wall; no symbol detector is involved.
-            walls, symbols = parsed["walls"], parsed["openings"]
+            walls, symbols, room_names = parsed["walls"], parsed["openings"], parsed["room_names"]
         else:
             walls, symbols, underlay = _raster_to_project_space(local_path)
+            room_names = []
 
         progress = 60
         report_progress(job_id, "Running", progress)
@@ -74,7 +75,7 @@ def vectorize_job(job_id: str, project_id: str, file_object_key: str) -> dict:
 
         progress = 80
         report_progress(job_id, "Running", progress)
-        result = serialize_pipeline_result(healed_walls, symbols, rooms_from_walls(healed_walls))
+        result = serialize_pipeline_result(healed_walls, symbols, label_rooms(rooms_from_walls(healed_walls), room_names))
 
         push_geometry_to_api(project_id, result)
         report_progress(job_id, "Completed", 100)

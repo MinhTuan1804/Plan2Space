@@ -48,3 +48,10 @@ def test_serializer_emits_rooms_in_the_api_shape():
     assert room["points"][0] == room["points"][-1]
     assert set(room["points"][0]) == {"x", "y"}
     assert Polygon([(p["x"], p["y"]) for p in room["points"]]).area == pytest.approx(16.0)
+
+
+def test_a_wall_ending_a_few_centimetres_short_of_another_still_closes_the_room():
+    # Walls drawn as outlines meet at their faces, so the centrelines stop short (a garage wall beside a pier).
+    walls = [{"points": [[0, 0], [4, 0]]}, {"points": [[4, 0], [4, 4]]},
+             {"points": [[4, 4], [0, 4]]}, {"points": [[0.1, 3.9], [0.1, 0.12]]}]
+    assert len(rooms_from_walls(walls)) == 1

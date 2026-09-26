@@ -9,8 +9,10 @@ export const DEFAULT_WALL_HEIGHT_M = 2.8
 export type FloorKind = 'wood' | 'tile'
 
 // A room the user has typed follows its type (kitchens and bathrooms are tiled); an untyped one, its size.
+const TILED: RoomType[] = ['kitchen', 'bathroom', 'garage', 'courtyard', 'balcony', 'storage']
+
 export function floorMaterialFor(areaM2: number, type: RoomType | null = null): FloorKind {
-  if (type) return type === 'kitchen' || type === 'bathroom' ? 'tile' : 'wood'
+  if (type) return TILED.includes(type) ? 'tile' : 'wood'
   return areaM2 < TILE_ROOM_MAX_AREA_M2 ? 'tile' : 'wood'
 }
 

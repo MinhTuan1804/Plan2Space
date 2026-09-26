@@ -1,4 +1,5 @@
 export type RoomType = 'bedroom' | 'living' | 'dining' | 'kitchen' | 'bathroom'
+  | 'altar' | 'garage' | 'courtyard' | 'balcony' | 'storage'
 
 export const ROOM_TYPES: { type: RoomType; label: string }[] = [
   { type: 'bedroom', label: 'Phòng ngủ' },
@@ -6,14 +7,25 @@ export const ROOM_TYPES: { type: RoomType; label: string }[] = [
   { type: 'dining', label: 'Phòng ăn' },
   { type: 'kitchen', label: 'Bếp' },
   { type: 'bathroom', label: 'WC' },
+  { type: 'altar', label: 'Phòng thờ' },
+  { type: 'garage', label: 'Gara' },
+  { type: 'courtyard', label: 'Giếng trời / sân' },
+  { type: 'balcony', label: 'Ban công' },
+  { type: 'storage', label: 'Kho' },
 ]
 
+// First match wins: a combined name ("KITCHEN + DINING / PANTRY", "ALTAR STORE") takes its main room.
 const KEYWORDS: [RoomType, string[]][] = [
-  ['bedroom', ['ngu', 'bedroom']],
-  ['living', ['khach', 'living']],
-  ['dining', ['phong an', 'dining']],
+  ['altar', ['tho', 'altar']],
   ['kitchen', ['bep', 'kitchen']],
   ['bathroom', ['wc', 'tam', 've sinh', 'bath', 'toilet']],
+  ['garage', ['gara']],
+  ['balcony', ['ban cong', 'balcony']],
+  ['courtyard', ['gieng troi', 'san phoi', 'light well', 'yard']],
+  ['storage', ['kho', 'store', 'storage', 'laundry']],
+  ['bedroom', ['ngu', 'bedroom', 'pn']],
+  ['living', ['khach', 'living', 'sinh hoat', 'family']],
+  ['dining', ['phong an', 'dining']],
 ]
 
 function normalise(label: string): string {

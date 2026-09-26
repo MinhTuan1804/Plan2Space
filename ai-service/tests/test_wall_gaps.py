@@ -27,3 +27,11 @@ def test_a_wall_end_bounds_one_gap_only_the_narrowest():
              {"points": [[5.445, 0], [5.555, 0]]}]
     gaps = find_wall_gaps(walls)
     assert [round(w, 3) for _, _, w in gaps] == [1.2]
+
+
+def test_a_gap_next_to_a_square_pier_is_found_whatever_way_the_pier_points():
+    # A 20 x 22 cm pier beside a 3 m garage door has no real length, so its centreline can come out
+    # across the wall; the doorway must still be found or the garage never closes into a room.
+    walls = [_wall((0.1, -0.11), (0.1, 0.11)), _wall((3.2, 0), (4.8, 0))]
+    widths = [round(w, 1) for _, _, w in find_wall_gaps(walls)]
+    assert widths == [3.1]

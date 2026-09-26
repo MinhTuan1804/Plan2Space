@@ -138,3 +138,33 @@ def test_walls_drawn_as_closed_rectangles_are_read_whole(tmp_path):
         assert covered >= 0.95 * along, (x0, y0, x1, y1, covered)
     thickness = {round(w["thickness_m"], 3) for w in walls}
     assert thickness <= {0.11, 0.22}
+
+
+def test_a_wall_ending_at_a_small_stub_stays_straight(tmp_path):
+    # Joining a wall end onto a 10 x 11 cm stub pulled it sideways (x 30.0 -> 29.95): the wall leaned 3.6
+    # degrees, the window gap beside it was no longer collinear, and the room around it never closed.
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    for x0, y0, x1, y1 in [(29890, 8800, 30110, 9600), (29900, 9540, 30000, 9650)]:
+        doc.modelspace().add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "WALL"})
+    path = tmp_path / "stub.dxf"; doc.saveas(path)
+    long_wall = max(parse_dxf(str(path))["walls"], key=lambda w: abs(w["points"][1][1] - w["points"][0][1]))
+    assert [round(p[0], 3) for p in long_wall["points"]] == [30.0, 30.0]
+
+
+def test_room_names_written_in_the_drawing_label_the_rooms(tmp_path):
+    # Plans name their rooms on a room-text layer; "Room N" hid them, and the floor type follows the name.
+    from pipeline.rooms import label_rooms
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    msp.add_text("GARA", dxfattribs={"layer": "TEXT-ROOM", "insert": (2000, 2000)})
+    msp.add_text("19.72 m²", dxfattribs={"layer": "TEXT-ROOM", "insert": (2000, 1600)})
+    msp.add_text("PHÒNG THỜ", dxfattribs={"layer": "TEXT", "insert": (2000, 2500)})      # not a room-name layer
+    msp.add_lwpolyline([(0, 0), (4000, 0), (4000, 110), (0, 110)], close=True, dxfattribs={"layer": "WALL"})
+    path = tmp_path / "names.dxf"; doc.saveas(path)
+    names = parse_dxf(str(path))["room_names"]
+    assert names == [("GARA", 2.0, 2.0)]
+    rooms = [{"points": [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]], "label": "Room 1"},
+             {"points": [[5, 0], [9, 0], [9, 4], [5, 4], [5, 0]], "label": "Room 2"}]
+    assert [r["label"] for r in label_rooms(rooms, names)] == ["GARA", "Room 2"]

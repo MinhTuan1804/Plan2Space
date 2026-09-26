@@ -4,7 +4,7 @@ import ezdxf
 from ezdxf import recover
 from ezdxf.math import Matrix44
 
-from pipeline.wall_gaps import find_wall_gaps
+from pipeline.wall_gaps import STUB_LENGTH_M, find_wall_gaps
 
 DEFAULT_WALL_THICKNESS_M = 0.2
 DEFAULT_WALL_HEIGHT_M = 2.8
@@ -173,6 +173,12 @@ def _join_t_ends(walls: list[dict]) -> None:
                 (ax, ay), (bx, by) = other["points"][0], other["points"][-1]
                 dx, dy = bx - ax, by - ay
                 length_sq = dx * dx + dy * dy
+                # Only onto a wall that crosses this one: a stub has no real direction and a parallel
+                # wall's nearest point lies sideways, either way the end would be pulled off its line.
+                (wx, wy), (vx, vy) = wall["points"][0], wall["points"][-1]
+                own = math.hypot(vx - wx, vy - wy)
+                if length_sq < STUB_LENGTH_M ** 2 or own == 0 or                         abs((vx - wx) * dy - (vy - wy) * dx) < 0.5 * own * math.sqrt(length_sq):
+                    continue
                 t = ((px - ax) * dx + (py - ay) * dy) / length_sq
                 qx, qy = ax + t * dx, ay + t * dy
                 if 0 < t < 1 and 0 < math.hypot(px - qx, py - qy) <= other["thickness_m"] / 2 + T_JOIN_SLACK_M:
@@ -321,4 +327,10 @@ def parse_dxf(path: str) -> dict:
     walls = _pair_wall_faces(in_metres)
     scaled_markers = [(kind, x * scale, y * scale) for kind, x, y in markers]
     openings = _wall_gap_openings(walls, scaled_markers)   # also adds the wall across each gap
-    return {"walls": walls, "openings": openings}
+    # Room names on a room-text layer; area lines ("19.72 m²") are skipped.
+    # ponytail: model-space text only, names inside blocks are missed; walk blocks if a plan needs it.
+    room_names = [(e.plain_text().strip(), e.dxf.insert[0] * scale, e.dxf.insert[1] * scale)
+                  for e in doc.modelspace().query("TEXT MTEXT")
+                  if "ROOM" in e.dxf.layer.upper() and e.plain_text().strip()
+                  and not e.plain_text().strip()[0].isdigit()]
+    return {"walls": walls, "openings": openings, "room_names": room_names}

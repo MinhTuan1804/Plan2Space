@@ -22,7 +22,7 @@ export interface CatalogDoor extends DoorSpec {
 
 export interface Catalog {
   items: CatalogEntry[]
-  autoFurnish: Record<RoomType, string[]>
+  autoFurnish: Partial<Record<RoomType, string[]>>   // types with no list furnish nothing
   door?: CatalogDoor | null
   byId: Record<string, CatalogEntry>
 }

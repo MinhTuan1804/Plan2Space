@@ -7,11 +7,13 @@ bridged before rooms can be polygonized, otherwise every loop is broken by a doo
 import math
 
 # A gap in a wall wider than this is a missing wall, not a doorway.
-MAX_OPENING_WIDTH_M = 3.0
+MAX_OPENING_WIDTH_M = 5.0   # a two-car garage door; wider gaps are missing walls
 # Narrower than the slimmest real door leaf: a gap this small is the wall's own thickness at a junction.
 MIN_OPENING_WIDTH_M = 0.4
 COLLINEAR_ANGLE_DEG = 3.0
 ACROSS_TOLERANCE_M = 0.05
+# Walls shorter than this are piers or stubs (a drawn square has no long side).
+STUB_LENGTH_M = 0.5
 
 
 def _direction(wall: dict) -> tuple[float, float]:
@@ -46,11 +48,17 @@ def find_wall_gaps(walls: list[dict]) -> list[tuple[tuple[float, float], tuple[f
                 return False
         return True
 
+    def length(wall) -> float:
+        (ax, ay), (bx, by) = wall["points"][0], wall["points"][-1]
+        return math.hypot(bx - ax, by - ay)
+
     best: dict[tuple[float, float], tuple[tuple[float, float], tuple[float, float], float]] = {}
     for i, wall in enumerate(walls):
-        direction = _direction(wall)
         for other in walls[i + 1:]:
-            if not _parallel(direction, _direction(other)):
+            # A pier or stub about as long as it is thick has no real direction: take the other wall's.
+            short_wall, short_other = length(wall) < STUB_LENGTH_M, length(other) < STUB_LENGTH_M
+            direction = _direction(other) if short_wall else _direction(wall)
+            if not (short_wall or short_other or _parallel(direction, _direction(other))):
                 continue
             for u in (wall["points"][0], wall["points"][-1]):
                 for v in (other["points"][0], other["points"][-1]):
