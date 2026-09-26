@@ -1,6 +1,7 @@
 import math
 
 import ezdxf
+from ezdxf import recover
 from ezdxf.math import Matrix44
 
 from pipeline.wall_gaps import find_wall_gaps
@@ -48,9 +49,12 @@ def _raw_points(entity) -> list[tuple[float, float]]:
         return [(entity.dxf.start.x, entity.dxf.start.y), (entity.dxf.end.x, entity.dxf.end.y)]
     if kind == "LWPOLYLINE":
         points = [(p[0], p[1]) for p in entity.get_points(format="xy")]
-    else:  # 2D POLYLINE
+    else:  # POLYLINE (2D/3D): the old-style polyline has is_closed, not LWPOLYLINE's closed
+        if entity.is_poly_face_mesh or entity.is_polygon_mesh:
+            return []
         points = [(v.x, v.y) for v in entity.points()]
-    if entity.closed and points and points[0] != points[-1]:
+    closed = entity.closed if kind == "LWPOLYLINE" else entity.is_closed
+    if closed and points and points[0] != points[-1]:
         points.append(points[0])
     return points
 
@@ -83,7 +87,10 @@ def _extract_from_space(space, transform: Matrix44 | None, inherited_layer: str 
             # ezdxf matrices use row vectors: apply the insert's own transform first, then the parent's.
             insert_transform = entity.matrix44()
             combined = insert_transform if transform is None else insert_transform @ transform
-            _extract_from_space(entity.block(), combined, layer, scale, walls, markers)
+            block = entity.block()
+            if block is None or block.block.is_xref:   # missing definition or unresolved external reference
+                continue
+            _extract_from_space(block, combined, layer, scale, walls, markers)
         elif opening_kind is not None:
             point = _marker_point(entity, transform)
             if point is not None:
@@ -264,7 +271,11 @@ def _wall_gap_openings(walls: list[dict], markers: list[tuple[str, float, float]
 
 
 def parse_dxf(path: str) -> dict:
-    doc = ezdxf.readfile(path)
+    # recover tolerates the small structural defects many CAD exporters leave; readfile rejects the whole file.
+    try:
+        doc, _ = recover.readfile(path)
+    except ezdxf.DXFStructureError as exc:
+        raise ValueError(f"The DXF file is damaged or not a DXF drawing: {exc}") from exc
     raw: list[dict] = []
     markers: list[tuple[str, float, float]] = []
     _extract_from_space(doc.modelspace(), None, None, 1.0, raw, markers)

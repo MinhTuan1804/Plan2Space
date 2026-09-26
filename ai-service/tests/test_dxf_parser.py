@@ -87,3 +87,30 @@ def test_the_line_capping_a_wall_end_is_not_a_wall_of_its_own():
     walls = _pair_wall_faces(faces_and_caps)
     assert len(walls) == 1
     assert walls[0]["thickness_m"] == 0.22
+
+# --- Old-style POLYLINE walls, missing blocks and slightly damaged files (e.g. nha_2tang_pa_a.dxf). ---
+def test_old_style_closed_polyline_walls_are_read(tmp_path):
+    doc = ezdxf.new("R2000")
+    doc.modelspace().add_polyline2d([(0, 0), (5, 0), (5, 4), (0, 4)], close=True, dxfattribs={"layer": "TUONG"})
+    path = tmp_path / "polyline.dxf"
+    doc.saveas(path)
+    result = parse_dxf(str(path))
+    assert len(result["walls"]) == 4
+
+
+def test_insert_of_a_missing_block_is_skipped(tmp_path):
+    doc = ezdxf.new()
+    doc.blocks.new("GONE")
+    doc.modelspace().add_blockref("GONE", (0, 0))
+    doc.blocks.delete_block("GONE", safe=False)
+    doc.modelspace().add_line((0, 0), (5, 0), dxfattribs={"layer": "WALL"})
+    path = tmp_path / "missing_block.dxf"
+    doc.saveas(path)
+    assert len(parse_dxf(str(path))["walls"]) == 1
+
+
+def test_a_file_that_is_not_a_dxf_fails_with_a_readable_message(tmp_path):
+    path = tmp_path / "broken.dxf"
+    path.write_bytes(b"this is not a drawing")
+    with pytest.raises(ValueError, match="DXF"):
+        parse_dxf(str(path))
