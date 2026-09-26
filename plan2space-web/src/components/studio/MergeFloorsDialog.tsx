@@ -10,7 +10,7 @@ export function MergeFloorsDialog({ onClose }: { onClose: () => void }) {
   const walls = useGeometryStore((s) => s.walls)
   const merge = planMerge(walls)
   const [swap, setSwap] = useState(false)
-  const [heights, setHeights] = useState(['3.6', '3.5'])
+  const [heights, setHeights] = useState(['3.6', '3.6'])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   if (!merge) return null

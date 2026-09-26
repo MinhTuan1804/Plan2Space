@@ -77,3 +77,14 @@ describe('mergeFloors', () => {
     expect(m.offset.x).toBeCloseTo(-20); expect(m.offset.y).toBeCloseTo(0)
   })
 })
+
+describe('stacked wall thickness', () => {
+  it('an upper wall over a thicker wall below takes its thickness; others keep theirs', () => {
+    const p = plan()
+    p.walls = [...rect('g', 0, 0, 10, 13.6), ...rect('f', 20, 0, 30, 13.6, 0.11),
+      { id: 'inner', points: [{ x: 25, y: 2 }, { x: 25, y: 6 }], thicknessMeters: 0.11, heightMeters: 3, version: 1 }]
+    const m = mergeFloors(p, planMerge(p.walls)!, [3.6, 3.6])
+    expect(m.walls.find((w) => w.id === 'f0')!.thicknessMeters).toBe(0.22)
+    expect(m.walls.find((w) => w.id === 'inner')!.thicknessMeters).toBe(0.11)
+  })
+})

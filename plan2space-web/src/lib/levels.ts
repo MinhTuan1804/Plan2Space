@@ -1,5 +1,5 @@
 import { FurnitureItem, Opening, Point, Room, Wall } from '../services/geometryService'
-import { polygonCentroid } from './planGeometry'
+import { nearestOnWalls, polygonCentroid } from './planGeometry'
 
 export interface PlanData { walls: Wall[]; rooms: Room[]; openings: Opening[]; furniture: FurnitureItem[] }
 export interface Bounds { minX: number; minY: number; maxX: number; maxY: number }
@@ -8,6 +8,7 @@ export interface MergePlan { lower: Block; upper: Block; offset: Point; sizeMism
 
 const BLOCK_GAP_M = 0.5          // walls this close (slab to slab) belong to one house
 const MIN_BLOCK_AREA_M2 = 20
+const STACKED_WALL_M = 0.05      // an upper wall this close over a lower one stands on it
 
 export const levelOf = (x: { level?: number }): number => x.level ?? 0
 export const levelsIn = (walls: Wall[]): number[] => [...new Set(walls.map(levelOf))].sort((a, b) => a - b)
@@ -96,9 +97,19 @@ export function mergeFloors(plan: PlanData, merge: MergePlan, heights: [number, 
   const up = new Set(merge.upper.wallIds)
   const move = (p: Point) => ({ x: p.x + merge.offset.x, y: p.y + merge.offset.y })
   const onUpper = (p: Point) => inside(p, merge.upper.bounds)
-  const walls = plan.walls.map((w) => up.has(w.id)
-    ? { ...w, points: w.points.map(move), level: 1, heightMeters: heights[1] }
-    : { ...w, level: 0, heightMeters: heights[0] })
+  const lowerWalls = plan.walls.filter((w) => !up.has(w.id)).map((w) => ({ ...w, level: 0, heightMeters: heights[0] }))
+  // An upper wall standing on a thicker one below is built as thick, so the facade runs flush.
+  const thickness = (w: Wall) => {
+    const mid = { x: (w.points[0].x + w.points[1].x) / 2, y: (w.points[0].y + w.points[1].y) / 2 }
+    const below = nearestOnWalls(mid, lowerWalls)
+    const t = below && below.distance < STACKED_WALL_M ? lowerWalls.find((l) => l.id === below.wallId)!.thicknessMeters : 0
+    return Math.max(w.thicknessMeters, t)
+  }
+  const upperWalls = plan.walls.filter((w) => up.has(w.id)).map((w) => {
+    const moved = { ...w, points: w.points.map(move), level: 1, heightMeters: heights[1] }
+    return { ...moved, thicknessMeters: thickness(moved) }
+  })
+  const walls = plan.walls.map((w) => (up.has(w.id) ? upperWalls : lowerWalls).find((x) => x.id === w.id)!)
   const rooms = plan.rooms.map((r) => onUpper(polygonCentroid(r.points)) ? { ...r, points: r.points.map(move), level: 1 } : { ...r, level: 0 })
   const openings = plan.openings.map((o) => up.has(o.wallId) ? { ...o, position: move(o.position), level: 1 } : { ...o, level: 0 })
   const furniture = plan.furniture.map((f) => onUpper(f) ? { ...f, ...move(f), level: 1 } : { ...f, level: 0 })
