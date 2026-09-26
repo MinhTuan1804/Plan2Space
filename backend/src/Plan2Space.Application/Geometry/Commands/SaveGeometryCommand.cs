@@ -10,11 +10,11 @@ namespace Plan2Space.Application.Geometry.Commands;
 public record PointDto(double X, double Y);
 // Id is optional: a client that sends a wall's/room's existing id keeps it stable across saves,
 // so openings (which reference WallId) stay attached. Omitted id = new element.
-public record WallInput(List<PointDto> Points, double ThicknessMeters, double HeightMeters, Guid? Id = null);
-public record RoomInput(List<PointDto> Points, string Label, Guid? Id = null, string? WallColor = null);
-public record OpeningInput(Guid WallId, string Type, PointDto Position, double WidthMeters, double SillHeightMeters, bool SwingFlipped = false);
+public record WallInput(List<PointDto> Points, double ThicknessMeters, double HeightMeters, Guid? Id = null, int Level = 0);
+public record RoomInput(List<PointDto> Points, string Label, Guid? Id = null, string? WallColor = null, int Level = 0);
+public record OpeningInput(Guid WallId, string Type, PointDto Position, double WidthMeters, double SillHeightMeters, bool SwingFlipped = false, int Level = 0);
 // Absolute plan position; front faces local -y at rotation 0 (CCW degrees).
-public record FurnitureInput(string CatalogId, double X, double Y, double RotationDeg, Guid? Id = null);
+public record FurnitureInput(string CatalogId, double X, double Y, double RotationDeg, Guid? Id = null, int Level = 0);
 
 public class GeometryConflictException : Exception { }
 
@@ -39,6 +39,14 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
 {
     public const int MaxFurniture = 2000;
     private static readonly Regex CatalogIdShape = new("^[a-z0-9_-]{1,64}$", RegexOptions.Compiled);
+    private const int MaxLevel = 9;
+
+    private static void CheckLevel(int level)
+    {
+        if (level is < 0 or > MaxLevel)
+            throw new GeometryValidationException($"level must be 0-{MaxLevel}");
+    }
+
     private static readonly Regex ColorShape = new("^#[0-9a-fA-F]{6}$", RegexOptions.Compiled);
     private readonly IPlan2SpaceDbContext _db;
     private static readonly GeometryFactory Factory = new();
@@ -73,6 +81,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
             // !(x > 0) also rejects NaN.
             if (!(w.ThicknessMeters > 0) || !(w.HeightMeters > 0))
                 throw new GeometryValidationException("A wall's thickness and height must be greater than zero");
+            CheckLevel(w.Level);
             var line = new LineString(w.Points.Select(p => new Coordinate(p.X, p.Y)).ToArray());
             var wall = w.Id is Guid id && existingWalls.TryGetValue(id, out var found) && usedWallIds.Add(id)
                 ? found
@@ -82,6 +91,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
             wall.Geometry = line;
             wall.ThicknessMeters = w.ThicknessMeters;
             wall.HeightMeters = w.HeightMeters;
+            wall.Level = w.Level;
             wall.Version = nextVersion;
             keptWalls.Add(wall);
         }
@@ -94,6 +104,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
         {
             if (r.WallColor is not null && !ColorShape.IsMatch(r.WallColor))
                 throw new GeometryValidationException("A room's wallColor must be #RRGGBB");
+            CheckLevel(r.Level);
             var polygon = BuildRoomPolygon(r.Points);
             var room = r.Id is Guid id && existingRooms.TryGetValue(id, out var found) && usedRoomIds.Add(id)
                 ? found
@@ -101,6 +112,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
             room.Geometry = polygon;
             room.Label = r.Label;
             room.WallColor = r.WallColor;
+            room.Level = r.Level;
             room.Version = nextVersion;
             keptRooms.Add(room);
         }
@@ -115,6 +127,9 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
             var wallId = wallIdMap.GetValueOrDefault(o.WallId, o.WallId);
             if (!wallIds.Contains(wallId))
                 throw new GeometryValidationException($"Opening references unknown wall {o.WallId}");
+            CheckLevel(o.Level);
+            if (keptWalls.First(w => w.Id == wallId).Level != o.Level)
+                throw new GeometryValidationException("An opening's level must match its wall's level");
             if (!Enum.TryParse<OpeningType>(o.Type, ignoreCase: true, out var type))
                 throw new GeometryValidationException($"Unknown opening type '{o.Type}'");
             return new Opening
@@ -126,6 +141,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
                 WidthMeters = o.WidthMeters,
                 SillHeightMeters = o.SillHeightMeters,
                 SwingFlipped = o.SwingFlipped,
+                Level = o.Level,
                 Version = nextVersion
             };
         }).ToList();
@@ -153,6 +169,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
             {
                 if (f.CatalogId is null || !CatalogIdShape.IsMatch(f.CatalogId))
                     throw new GeometryValidationException("A furniture catalogId must be 1-64 characters of a-z, 0-9, _ or -");
+                CheckLevel(f.Level);
                 if (!double.IsFinite(f.X) || !double.IsFinite(f.Y) || !double.IsFinite(f.RotationDeg))
                     throw new GeometryValidationException("Furniture position and rotation must be finite numbers");
                 var item = f.Id is Guid id && existingFurniture.TryGetValue(id, out var found) && usedFurnitureIds.Add(id)
@@ -162,6 +179,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
                 item.X = f.X;
                 item.Y = f.Y;
                 item.RotationDeg = f.RotationDeg;
+                item.Level = f.Level;
                 item.Version = nextVersion;
                 keptFurniture.Add(item);
             }

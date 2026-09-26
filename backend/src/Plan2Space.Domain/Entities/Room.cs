@@ -10,5 +10,6 @@ public class Room
     public Polygon Geometry { get; set; } = default!;
     public string Label { get; set; } = "Room";
     public string? WallColor { get; set; }          // #RRGGBB paint of the walls' faces inside this room; null = default
+    public int Level { get; set; }                     // storey: 0 = ground floor
     public uint Version { get; set; } = 1;
 }
