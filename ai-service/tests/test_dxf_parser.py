@@ -114,3 +114,27 @@ def test_a_file_that_is_not_a_dxf_fails_with_a_readable_message(tmp_path):
     path.write_bytes(b"this is not a drawing")
     with pytest.raises(ValueError, match="DXF"):
         parse_dxf(str(path))
+
+
+def test_walls_drawn_as_closed_rectangles_are_read_whole(tmp_path):
+    # Some plans draw each wall as one closed rectangle. Pairing its edges as loose face lines let an edge
+    # pair with a neighbouring wall's edge instead, and walls came out partly missing (a two-storey plan).
+    import ezdxf
+    from shapely.geometry import LineString, box
+    from shapely.ops import unary_union
+    rects = [(-110, 0, 110, 6600), (3345, 5400, 3455, 5800), (0, 5745, 3450, 5855),
+             (4350, 5745, 6800, 5855), (2745, 5800, 2855, 6000), (4345, 5800, 4455, 6100)]
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    for x0, y0, x1, y1 in rects:
+        doc.modelspace().add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "WALL"})
+    path = tmp_path / "rect_walls.dxf"; doc.saveas(path)
+
+    walls = parse_dxf(str(path))["walls"]
+    lines = unary_union([LineString(w["points"]) for w in walls])
+    for x0, y0, x1, y1 in rects:
+        x0, y0, x1, y1 = x0 / 1000, y0 / 1000, x1 / 1000, y1 / 1000
+        along = max(x1 - x0, y1 - y0)
+        covered = lines.intersection(box(x0, y0, x1, y1).buffer(0.001)).length
+        assert covered >= 0.95 * along, (x0, y0, x1, y1, covered)
+    thickness = {round(w["thickness_m"], 3) for w in walls}
+    assert thickness <= {0.11, 0.22}

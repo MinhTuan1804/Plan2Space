@@ -205,9 +205,41 @@ def _caps_a_wall(seg, paired: list[dict]) -> bool:
     return False
 
 
+def _rectangle_walls(walls: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Splits off closed four-corner right-angled outlines whose short side is a wall thickness, as centreline
+    walls (marked paired, so T-ends still join); everything else is returned for face pairing."""
+    rects, rest = [], []
+    for wall in walls:
+        pts = [tuple(p) for p in wall["points"]]
+        if len(pts) == 5 and pts[0] == pts[-1]:
+            pts = pts[:4]
+        if len(pts) != 4:
+            rest.append(wall); continue
+        edges = [(pts[i], pts[(i + 1) % 4]) for i in range(4)]
+        lengths = [math.dist(a, b) for a, b in edges]
+        if min(lengths) == 0:
+            rest.append(wall); continue
+        square = all(abs((b[0] - a[0]) * (d[0] - c[0]) + (b[1] - a[1]) * (d[1] - c[1])) < 1e-6 * l1 * l2
+                     for (a, b), (c, d), l1, l2 in zip(edges, edges[1:] + edges[:1], lengths, lengths[1:] + lengths[:1]))
+        short, long_ = min(lengths[0], lengths[1]), max(lengths[0], lengths[1])
+        if not square or not FACE_PAIR_MIN_GAP_M <= short <= FACE_PAIR_MAX_GAP_M or long_ < short:
+            rest.append(wall); continue
+        # The centreline runs along the long sides, through the middle of the short ones.
+        i = 0 if lengths[0] >= lengths[1] else 1
+        (a, b), (c, d) = edges[i + 1], edges[(i + 3) % 4]
+        start = ((c[0] + d[0]) / 2, (c[1] + d[1]) / 2)
+        end = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        rects.append({"points": [list(start), list(end)], "thickness_m": round(short, 6),
+                      "height_m": DEFAULT_WALL_HEIGHT_M, "_paired": True})
+    return rects, rest
+
+
 def _pair_wall_faces(walls: list[dict]) -> list[dict]:
     """Real CAD plans draw a wall as its two face lines; merge each face pair into one centreline wall whose
     thickness is the gap. Lines without a partner stay as (default-thickness) centreline walls."""
+    # A wall drawn as one closed rectangle is read whole: pairing its edges as loose faces could match an
+    # edge with a neighbouring wall's edge and leave both walls partly missing.
+    rect_walls, walls = _rectangle_walls(walls)
     segs = _segments(walls)
     bin_width = math.radians(FACE_PAIR_MAX_ANGLE_DEG)
     n_bins = round(math.pi / bin_width)
@@ -228,7 +260,7 @@ def _pair_wall_faces(walls: list[dict]) -> list[dict]:
                     candidates.append((-overlap, gap, i, j, centreline))
     candidates.sort(key=lambda c: (c[0], c[1]))
 
-    used, out = set(), []
+    used, out = set(), list(rect_walls)
     for _, gap, i, j, centreline in candidates:
         if i in used or j in used:
             continue
