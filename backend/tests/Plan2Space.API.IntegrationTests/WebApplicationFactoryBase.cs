@@ -40,7 +40,7 @@ public class Plan2SpaceWebApplicationFactory : WebApplicationFactory<Program>, I
         .Build();
 
     private static readonly MinioContainer Minio = new MinioBuilder()
-        .WithImage("quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z")
+        .WithImage("pgsty/minio:RELEASE.2026-08-04T00-00-00Z")
         .WithUsername(MinioUser).WithPassword(MinioPass)
         .Build();
 

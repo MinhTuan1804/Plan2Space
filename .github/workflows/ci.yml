@@ -16,7 +16,7 @@ jobs:
       - name: Pull test container images
         run: |
           for image in postgis/postgis:16-3.4-alpine redis:7.2-alpine rabbitmq:3.13-management-alpine \
-                       quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z; do
+                       pgsty/minio:RELEASE.2026-08-04T00-00-00Z; do
             for attempt in 1 2 3 4 5; do
               docker pull -q "$image" && break
               [ "$attempt" = 5 ] && { echo "::error::could not pull $image"; exit 1; }
