@@ -9,7 +9,8 @@ import { FurnitureModels } from './FurnitureModels'
 import { OpeningModels } from './OpeningModels'
 import { levelElevation, levelScene, levelsIn, PlanData, storeyHeight } from '../../../lib/levels'
 import { LevelShell } from './LevelShell'
-import { holeRooms } from './slabs'
+import { holeRooms, stairWells } from './slabs'
+import { StairModel } from './StairModel'
 import { wallEndExtensions } from './wallJoints'
 import { splitWallFacesByRoom } from './wallPaint'
 
@@ -80,6 +81,9 @@ export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
           <group key={level} position={[0, 0, levelElevation(walls, level)]}>
             <LevelModel {...scene} holes={holes} showCeilings={showCeilings && isTop} />
             <LevelShell rooms={rooms} level={level} walls={scene.walls} isTop={isTop} height={storeyHeight(walls, level)} />
+            {stairWells(rooms, level).map((well) => (
+              <StairModel key={well.id} well={well} rise={storeyHeight(walls, level)} openings={scene.openings} />
+            ))}
           </group>
         )
       })}
