@@ -67,3 +67,37 @@ def test_clean_case_is_read_as_drawn(house, tmp_path):
     result = process_dxf(str(case / "drawing.dxf"))
     # The writer draws what the pipeline reads; how well it reads it is the benchmark's job, not this test's.
     assert abs(len(result["rooms"]) - len(truth["rooms"])) <= 1
+
+
+from generate import VARIANTS, variants_for  # noqa: E402
+import ezdxf  # noqa: E402
+
+
+def test_every_variant_writes_a_readable_dxf_with_the_same_answer(tmp_path):
+    for house in HOUSES:
+        clean = json.loads((write_case(house, "clean", tmp_path) / "truth.json").read_text(encoding="utf-8"))
+        for variant in variants_for(house):
+            case = write_case(house, variant, tmp_path)
+            ezdxf.readfile(case / "drawing.dxf")
+            assert json.loads((case / "truth.json").read_text(encoding="utf-8")) == clean, (house.name, variant)
+
+
+def test_variant_list():
+    assert VARIANTS == ["clean", "two_lines", "gaps", "door_blocks", "mtext_names", "odd_layers",
+                        "units_cm", "units_m", "clutter"]
+    assert variants_for(HOUSES[0]) == VARIANTS
+
+
+def _extent(path):
+    doc = ezdxf.readfile(path)
+    xs = [p[0] for e in doc.modelspace().query("LWPOLYLINE LINE") for p in
+          (e.get_points("xy") if e.dxftype() == "LWPOLYLINE" else [e.dxf.start, e.dxf.end])]
+    return max(xs) - min(xs), doc.header["$INSUNITS"]
+
+
+def test_units_variants_scale_geometry(tmp_path):
+    clean, u_clean = _extent(write_case(HOUSES[0], "clean", tmp_path) / "drawing.dxf")
+    cm, u_cm = _extent(write_case(HOUSES[0], "units_cm", tmp_path) / "drawing.dxf")
+    m, u_m = _extent(write_case(HOUSES[0], "units_m", tmp_path) / "drawing.dxf")
+    assert (u_clean, u_cm, u_m) == (4, 5, 6)
+    assert cm == pytest.approx(clean / 10) and m == pytest.approx(clean / 1000)

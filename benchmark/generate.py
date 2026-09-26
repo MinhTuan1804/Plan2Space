@@ -173,7 +173,128 @@ class Drawer:
             self.name(r.name, Polygon(r.points).representative_point().coords[0], dx)
 
 
-VARIANTS = ["clean"]
+class TwoLines(Drawer):
+    """Walls as two loose parallel face lines instead of a closed outline."""
+    def wall(self, a, b, t, dx):
+        p = _outline(a, b, t)
+        for s, e in ((p[0], p[1]), (p[3], p[2])):
+            self.msp.add_line(self.u(s, dx), self.u(e, dx), dxfattribs={"layer": "WALL"})
+
+
+class Gaps(Drawer):
+    """Every wall piece pulled back 5–30 mm at each end: joints that do not quite meet."""
+    def __init__(self, doc, rng, **kw):
+        super().__init__(doc, **kw)
+        self.rng = rng
+
+    def wall(self, a, b, t, dx):
+        length = math.dist(a, b)
+        s, e = self.rng.uniform(0.005, 0.03), self.rng.uniform(0.005, 0.03)
+        if length <= s + e + 0.05:
+            return super().wall(a, b, t, dx)
+        ux, uy = (b[0] - a[0]) / length, (b[1] - a[1]) / length
+        super().wall((a[0] + ux * s, a[1] + uy * s), (b[0] - ux * e, b[1] - uy * e), t, dx)
+
+
+class DoorBlocks(Drawer):
+    """Doors as block inserts (leaf + 90° swing) on an unusual layer."""
+    def opening(self, o, wall, dx):
+        if o.type != "Door":
+            return super().opening(o, wall, dx)
+        line = LineString(wall["points"])
+        d = line.project(Point(o.centre))
+        (ax, ay), (bx, by) = line.interpolate(d - o.width / 2).coords[0], line.interpolate(d + o.width / 2).coords[0]
+        name = f"DOOR_{round(o.width * 1000)}"
+        if name not in self.doc.blocks:
+            blk = self.doc.blocks.new(name)
+            w = o.width * self.unit
+            blk.add_line((0, 0), (0, w), dxfattribs={"layer": "0"})
+            blk.add_arc((0, 0), w, 0, 90, dxfattribs={"layer": "0"})
+        angle = math.degrees(math.atan2(by - ay, bx - ax))
+        self.msp.add_blockref(name, self.u((ax, ay), dx), dxfattribs={"layer": "A-DOOR", "rotation": angle})
+
+
+class MtextNames(Drawer):
+    """Names as formatted MTEXT with the area on a second line; every third one inside a block."""
+    count = 0
+
+    def name(self, text, at, dx):
+        MtextNames.count += 1
+        content = r"{\fArial|b1;" + text + r"}\P12.5 m²"
+        if MtextNames.count % 3:
+            self.msp.add_mtext(content, dxfattribs={"layer": "TEXT-ROOM", "insert": self.u(at, dx),
+                                                    "char_height": TEXT_HEIGHT_MM * self.unit / MM})
+            return
+        blk = self.doc.blocks.new(f"LABEL_{MtextNames.count}")
+        blk.add_text(text, height=TEXT_HEIGHT_MM * self.unit / MM, dxfattribs={"layer": "TEXT-ROOM"})
+        self.msp.add_blockref(blk.name, self.u(at, dx), dxfattribs={"layer": "TEXT-ROOM"})
+
+
+class OddLayers(Drawer):
+    """The layer names of another office: walls on A-WALL, TUONG or 0, names on A-ANNO-ROOM."""
+    def __init__(self, doc, wall_layer, **kw):
+        super().__init__(doc, **kw)
+        self.wall_layer = wall_layer
+
+    def wall(self, a, b, t, dx):
+        self.msp.add_lwpolyline([self.u(p, dx) for p in _outline(a, b, t)], close=True,
+                                dxfattribs={"layer": self.wall_layer})
+
+    def name(self, text, at, dx):
+        self.msp.add_text(text, height=TEXT_HEIGHT_MM * self.unit / MM,
+                          dxfattribs={"layer": "A-ANNO-ROOM", "insert": self.u(at, dx)})
+
+
+class Clutter(Drawer):
+    """What else a real plan carries: hatched wet rooms, dimension lines, furniture drawn with lines."""
+    def level(self, level, dx):
+        super().level(level, dx)
+        for r in level.rooms:
+            if r.type == "bathroom":
+                hatch = self.msp.add_hatch(dxfattribs={"layer": "HATCH"})
+                hatch.paths.add_polyline_path([self.u(p, dx) for p in r.points[:-1]], is_closed=True)
+        xs = [p[0] for r in level.rooms for p in r.points]
+        ys = [p[1] for r in level.rooms for p in r.points]
+        x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+        for a, b in (((x0, y0 - 1.0), (x1, y0 - 1.0)), ((x0 - 1.0, y0), (x0 - 1.0, y1))):
+            self.msp.add_line(self.u(a, dx), self.u(b, dx), dxfattribs={"layer": "DIM"})
+            self.msp.add_text(f"{math.dist(a, b) * 1000:.0f}", height=180 * self.unit / MM,
+                              dxfattribs={"layer": "DIM", "insert": self.u(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), dx)})
+        bedroom = next((r for r in level.rooms if r.type == "bedroom"), None)
+        if bedroom:
+            cx, cy = Polygon(bedroom.points).representative_point().coords[0]
+            bed = [(cx - 0.8, cy - 1.0), (cx + 0.8, cy - 1.0), (cx + 0.8, cy + 1.0), (cx - 0.8, cy + 1.0)]
+            for i in range(4):
+                self.msp.add_line(self.u(bed[i], dx), self.u(bed[(i + 1) % 4], dx), dxfattribs={"layer": "FURNITURE"})
+
+
+VARIANTS = ["clean", "two_lines", "gaps", "door_blocks", "mtext_names", "odd_layers", "units_cm", "units_m", "clutter"]
+ODD_WALL_LAYERS = ["A-WALL", "TUONG", "0"]
+
+
+def variants_for(house: House) -> list[str]:
+    return list(VARIANTS)
+
+
+def _drawer(house: House, variant: str, doc) -> Drawer:
+    import random
+    if variant == "two_lines":
+        return TwoLines(doc)
+    if variant == "gaps":
+        return Gaps(doc, random.Random(f"{house.name}/{variant}"))
+    if variant == "door_blocks":
+        return DoorBlocks(doc)
+    if variant == "mtext_names":
+        return MtextNames(doc)
+    if variant == "odd_layers":
+        return OddLayers(doc, ODD_WALL_LAYERS[HOUSES.index(house) % len(ODD_WALL_LAYERS)])
+    if variant == "units_cm":
+        return Drawer(doc, unit=100.0)
+    if variant == "units_m":
+        return Drawer(doc, unit=1.0)
+    if variant == "clutter":
+        return Clutter(doc)
+    return Drawer(doc)
 
 
 def write_case(house: House, variant: str, out_dir) -> Path:
@@ -182,8 +303,8 @@ def write_case(house: House, variant: str, out_dir) -> Path:
     case = Path(out_dir) / f"{house.name}__{variant}"
     case.mkdir(parents=True, exist_ok=True)
     doc = ezdxf.new("R2010")
-    doc.header["$INSUNITS"] = 4
-    drawer = Drawer(doc)
+    drawer = _drawer(house, variant, doc)
+    doc.header["$INSUNITS"] = {MM: 4, 100.0: 5, 1.0: 6}[drawer.unit]
     step = _block_step(house)
     for i, level in enumerate(house.levels):
         drawer.level(level, i * step)
@@ -193,7 +314,7 @@ def write_case(house: House, variant: str, out_dir) -> Path:
 
 
 def generate_all(out_dir) -> list[Path]:
-    return [write_case(h, v, out_dir) for h in HOUSES for v in VARIANTS]
+    return [write_case(h, v, out_dir) for h in HOUSES for v in variants_for(h)]
 
 
 if __name__ == "__main__":
