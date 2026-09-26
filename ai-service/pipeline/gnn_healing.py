@@ -77,4 +77,6 @@ def heal_wall_topology(walls: list[dict], snap_tolerance_m: float = 0.05) -> lis
         if best is not None:
             healed[wi]["points"][idx] = best[1]
 
-    return healed
+    # Clusters chain, so a wall shorter than the tolerance can get both ends snapped onto one point.
+    # A zero-length wall has no geometry to draw (the 3D view crashed on it); drop it.
+    return [w for w in healed if any(p != w["points"][0] for p in w["points"][1:])]

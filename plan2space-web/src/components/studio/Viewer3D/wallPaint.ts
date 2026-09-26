@@ -100,6 +100,8 @@ export function splitWallFacesByRoom(source: THREE.BufferGeometry, wall: Wall, r
     { geometry: THREE.BufferGeometry; roomIds: string[] } {
   const flat = source.index ? source.toNonIndexed() : source.clone()
   flat.clearGroups()
+  // A zero-length wall builds no geometry at all: nothing to paint, and one such wall must not crash the scene.
+  if (!flat.getAttribute('position')) return { geometry: flat, roomIds: [] }
   const g = splitAtRoomCorners(flat, wall, rooms)
   const pos = g.getAttribute('position')
   const triangles = pos.count / 3

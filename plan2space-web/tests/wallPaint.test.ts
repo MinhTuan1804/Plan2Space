@@ -21,6 +21,13 @@ function trianglesPerSlot(g: THREE.BufferGeometry): Record<number, number> {
 }
 
 describe('wall faces painted by the room they face', () => {
+  it('a zero-length wall (all points the same) has nothing to paint and does not throw', () => {
+    const dot: Wall = { ...wall, points: [{ x: 1, y: 1 }, { x: 1, y: 1 }] }
+    const { geometry, roomIds } = splitWallFacesByRoom(buildWallGeometry(dot), dot, [room('in', box(0, 0, 4, 3))])
+    expect(roomIds).toEqual([])
+    expect(geometry.getAttribute('position')).toBeUndefined()
+  })
+
   it('a wall between two rooms: each long face goes to its own room, the rest keeps the default paint', () => {
     const north = room('north', box(0, 0, 4, 3))
     const south = room('south', box(0, -3, 4, 0))

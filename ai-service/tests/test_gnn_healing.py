@@ -42,3 +42,10 @@ def test_input_walls_are_not_mutated():
     walls = [_wall((0, 0), (5.0, 0)), _wall((5.03, 0), (5.03, 4))]
     heal_wall_topology(walls, snap_tolerance_m=0.05)
     assert walls[1]["points"][0] == [5.03, 0]
+
+def test_a_wall_collapsed_to_one_point_by_snapping_is_dropped():
+    # A 3 mm stub between two walls that meet: both of its ends join the same corner cluster.
+    walls = [_wall((0, 0), (5.0, 0)), _wall((5.0, 0), (5.003, 0)), _wall((5.003, 0), (5.003, 4))]
+    healed = heal_wall_topology(walls, snap_tolerance_m=0.005)
+    assert len(healed) == 2
+    assert all(w["points"][0] != w["points"][-1] for w in healed)
