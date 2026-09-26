@@ -47,3 +47,29 @@ describe('each room paints its own side of the wall', () => {
     expect(y.south).toBeLessThan(0)
   })
 })
+
+describe('a long wall shared by several rooms', () => {
+  it('each room\'s paint stops exactly at the room\'s corner on the wall', () => {
+    // One 9 m wall along y = 0 with three rooms north of it, split at x = 3 and x = 5.5 (the user's plan).
+    const wall: Wall = { id: 'w', points: [{ x: 0, y: 0 }, { x: 9, y: 0 }], thicknessMeters: 0.22, heightMeters: 3, version: 1 }
+    const three: Room[] = [
+      { id: 'a', label: 'a', version: 1, points: box(0, 0, 3, 4) },
+      { id: 'b', label: 'b', version: 1, points: box(3, 0, 5.5, 4) },
+      { id: 'c', label: 'c', version: 1, points: box(5.5, 0, 9, 4) },
+    ]
+    const { geometry, roomIds } = splitWallFacesByRoom(buildWallGeometry(wall), wall, three)
+    const pos = geometry.getAttribute('position')
+    const span: Record<string, [number, number]> = { a: [0, 3], b: [3, 5.5], c: [5.5, 9] }
+    let area: Record<string, number> = {}
+    for (const grp of geometry.groups) {
+      if (!grp.materialIndex) continue
+      const id = roomIds[grp.materialIndex - 1]
+      for (let i = grp.start; i < grp.start + grp.count; i++) {
+        expect(pos.getX(i)).toBeGreaterThanOrEqual(span[id][0] - 1e-6)
+        expect(pos.getX(i)).toBeLessThanOrEqual(span[id][1] + 1e-6)
+      }
+      area[id] = (area[id] ?? 0) + grp.count
+    }
+    expect(Object.keys(area).sort()).toEqual(['a', 'b', 'c'])
+  })
+})

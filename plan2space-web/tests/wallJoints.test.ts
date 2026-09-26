@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
 import { buildWallGeometry } from '../src/components/studio/Viewer3D/buildWallGeometry'
-import { wallEndExtensions } from '../src/components/studio/Viewer3D/wallJoints'
+import { wallEndExtensions, JOINT_INSET_M } from '../src/components/studio/Viewer3D/wallJoints'
 import { Wall } from '../src/services/geometryService'
 
 const wall = (id: string, a: [number, number], b: [number, number], t = 0.2): Wall =>
@@ -12,15 +12,25 @@ describe('wall joints', () => {
     const a = wall('a', [0, 0], [4, 0])
     const b = wall('b', [4, 0], [4, 3], 0.3)
     const walls = [a, b]
-    expect(wallEndExtensions(a, walls)).toEqual([0, 0.15])
-    expect(wallEndExtensions(b, walls)).toEqual([0.1, 0])
+    const [a0, a1] = wallEndExtensions(a, walls)
+    const [b0, b1] = wallEndExtensions(b, walls)
+    expect(a0).toBe(0); expect(a1).toBeCloseTo(0.15 - JOINT_INSET_M, 9)
+    expect(b0).toBeCloseTo(0.1 - JOINT_INSET_M, 9); expect(b1).toBe(0)
   })
 
   it("a wall stopping at another wall's face reaches through to its far face", () => {
     const thin = wall('thin', [2, -2], [2, 2], 0.11)
     const butt = wall('butt', [0, 0], [1.945, 0])          // stops 0.055 short: at the thin wall's face
     const [, end] = wallEndExtensions(butt, [thin, butt])
-    expect(end).toBeCloseTo(0.11, 6)
+    expect(end).toBeCloseTo(0.11 - JOINT_INSET_M, 6)
+  })
+
+  it("an end stops just inside the far face: never flush with it, so the two faces cannot flicker", () => {
+    const thick = wall('thick', [2, -2], [2, 2], 0.2)
+    const butt = wall('butt', [0, 0], [2, 0], 0.11)          // ends on the thick wall's centreline
+    const [, end] = wallEndExtensions(butt, [thick, butt])
+    expect(end).toBeLessThan(0.1)                             // the far face is 0.1 beyond the centreline
+    expect(end).toBeGreaterThan(0.1 - 0.005)
   })
 
   it('collinear neighbours (either side of a doorway) and free ends are not extended', () => {

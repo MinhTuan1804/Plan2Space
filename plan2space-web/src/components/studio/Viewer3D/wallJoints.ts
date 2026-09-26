@@ -4,6 +4,9 @@ import { Point, Wall } from '../../../services/geometryService'
 // corner square missing, and a wall drawn up to another wall's face stops short of its centreline.
 // Each such end is pushed through to the far face of the wall it meets; the overlap hides inside.
 const TOUCH_TOLERANCE_M = 0.02
+// Ends stop this short of the far face: flush with it, the end's own face would flicker through that face,
+// which shows as a stripe once rooms are painted different colours.
+export const JOINT_INSET_M = 0.002
 const PARALLEL_COS = Math.cos((10 * Math.PI) / 180)
 
 function distanceToSegment(p: Point, a: Point, b: Point): number {
@@ -32,7 +35,7 @@ function endExtension(end: Point, direction: Point, wall: Wall, walls: Wall[], l
       if (Math.abs(u.x * direction.x + u.y * direction.y) >= PARALLEL_COS) continue   // a doorway neighbour
       const half = other.thicknessMeters / 2
       const distance = distanceToSegment(end, a, b)
-      if (distance <= half + TOUCH_TOLERANCE_M) extension = Math.max(extension, distance + half)
+      if (distance <= half + TOUCH_TOLERANCE_M) extension = Math.max(extension, distance + half - JOINT_INSET_M)
     }
   }
   return extension
