@@ -3,6 +3,7 @@ import { deriveRooms, fetchGeometry, saveGeometry, FurnitureItem, GeometryDto, W
 import {
   alongClamped, DEFAULT_WALL_HEIGHT_M, DEFAULT_WALL_THICKNESS_M, distanceAlong, interiorPoint, newId, pointInPolygon,
 } from '../lib/planGeometry'
+import { mergeFloors, planMerge } from '../lib/levels'
 import { roomTypeOf } from '../lib/roomTypes'
 
 // What a calibration puts back if its save fails: the plan and whether it had unsaved edits.
@@ -44,6 +45,7 @@ export interface GeometryState {
   replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[]) => void
   updateRoomLabel: (roomId: string, label: string) => void
   setRoomWallColor: (roomId: string, color: string | null) => void
+  mergeLevels: (heights: [number, number], swap?: boolean) => Promise<string | null>
   scalePlan: (factor: number) => void
   snapshotPlan: () => PlanSnapshot
   restorePlan: (snapshot: PlanSnapshot) => void
@@ -235,6 +237,28 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
         ...items.map((i) => ({ ...i, id: newId() })),
       ] }))
       markEdited()
+    },
+
+    mergeLevels: async (heights, swap = false) => {
+      const { projectId, walls, rooms, openings, furniture } = get()
+      const found = planMerge(walls)
+      if (!projectId || !found) return 'There are no two floors to merge.'
+      const merge = swap ? { ...found, lower: found.upper, upper: found.lower, offset: { x: -found.offset.x, y: -found.offset.y } } : found
+      const before = get().snapshotPlan()
+      // Rooms move with their floor, so they are not re-derived (wallsEdited stays as it was).
+      set(mergeFloors({ walls, rooms, openings, furniture }, merge, heights))
+      markEdited()
+      try {
+        await get().saveToServer(projectId)
+      } catch (err: any) {
+        get().restorePlan(before)
+        return err?.response?.data?.message || 'The merged plan could not be saved, so nothing was changed. Try again.'
+      }
+      if (get().saveConflict) {
+        get().restorePlan(before)
+        return 'The plan changed elsewhere, so nothing was changed. Reload it, then merge again.'
+      }
+      return null
     },
 
     setRoomWallColor: (roomId, color) => {

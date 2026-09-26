@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGeometryStore } from '../../stores/geometryStore'
+import { planMerge } from '../../lib/levels'
+import { MergeFloorsDialog } from './MergeFloorsDialog'
 import { Tool, useEditorStore } from '../../stores/editorStore'
 import { runVectorization } from '../../services/aiJobService'
 import { downloadExport, EXPORT_OPTIONS, ExportFormat } from '../../services/exportService'
@@ -35,6 +37,8 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
   const dirty = useGeometryStore((s) => s.dirty)
   const draftDiscarded = useGeometryStore((s) => s.draftDiscarded)
   const roomsRefreshFailed = useGeometryStore((s) => s.roomsRefreshFailed)
+  const canMerge = planMerge(walls) !== null
+  const [merging, setMerging] = useState(false)
 
   const tool = useEditorStore((s) => s.tool)
   const setTool = useEditorStore((s) => s.setTool)
@@ -235,6 +239,14 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
             {actionError}
           </div>
         )}
+
+        {canMerge && (
+          <button onClick={() => setMerging(true)}
+                  className="rounded-lg border border-blue-700 px-3 py-1.5 text-xs font-medium text-blue-200 hover:bg-blue-900/40">
+            Ghép tầng
+          </button>
+        )}
+        {merging && <MergeFloorsDialog onClose={() => setMerging(false)} />}
 
         <label
           className={`flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium transition ${
