@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGeometryStore } from '../../stores/geometryStore'
-import { planMerge } from '../../lib/levels'
+import { levelsIn, planMerge } from '../../lib/levels'
 import { MergeFloorsDialog } from './MergeFloorsDialog'
 import { Tool, useEditorStore } from '../../stores/editorStore'
 import { runVectorization } from '../../services/aiJobService'
@@ -38,6 +38,9 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
   const draftDiscarded = useGeometryStore((s) => s.draftDiscarded)
   const roomsRefreshFailed = useGeometryStore((s) => s.roomsRefreshFailed)
   const canMerge = planMerge(walls) !== null
+  const levels = levelsIn(walls)
+  const level = useEditorStore((s) => s.level)
+  const setLevel = useEditorStore((s) => s.setLevel)
   const [merging, setMerging] = useState(false)
 
   const tool = useEditorStore((s) => s.tool)
@@ -240,6 +243,16 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
           </div>
         )}
 
+        {levels.length > 1 && (
+          <div className="flex overflow-hidden rounded-lg border border-zinc-700 text-xs">
+            {levels.map((l) => (
+              <button key={l} onClick={() => setLevel(l)} aria-pressed={level === l}
+                      className={`px-2.5 py-1.5 ${level === l ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-800'}`}>
+                Tầng {l + 1}
+              </button>
+            ))}
+          </div>
+        )}
         {canMerge && (
           <button onClick={() => setMerging(true)}
                   className="rounded-lg border border-blue-700 px-3 py-1.5 text-xs font-medium text-blue-200 hover:bg-blue-900/40">

@@ -4,13 +4,15 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { useCatalog } from '../../../services/catalogService'
 import { PIXELS_PER_METER, screenToPlan, toScreen } from './canvasTransform'
+import { levelOf } from '../../../lib/levels'
 
 // A catalog id with no entry (the catalog changed since the plan was saved) is kept and drawn grey.
 const UNKNOWN = { name: '?', widthM: 0.5, depthM: 0.5 }
 
 // Footprints in plan space. Screen y points down, so a CCW plan rotation is a CW screen rotation.
 export function FurnitureLayer() {
-  const furniture = useGeometryStore((s) => s.furniture)
+  const level = useEditorStore((s) => s.level)
+  const furniture = useGeometryStore((s) => s.furniture).filter((f) => levelOf(f) === level)
   const moveFurniture = useGeometryStore((s) => s.moveFurniture)
   const tool = useEditorStore((s) => s.tool)
   const selection = useEditorStore((s) => s.selection)

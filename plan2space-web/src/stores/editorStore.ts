@@ -24,6 +24,8 @@ interface EditorState {
   bumpUnderlay: () => void
   // The full-screen walk-through is open; it owns the keyboard.
   walking: boolean
+  level: number                 // the storey the 2D plan shows and edits
+  setLevel: (level: number) => void
   setWalking: (walking: boolean) => void
   // A saved calibration whose image scale could not be sent yet; retried from the editor.
   pendingUnderlayMpp: number | null
@@ -53,6 +55,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   underlayRevision: 0,
   bumpUnderlay: () => set((s) => ({ underlayRevision: s.underlayRevision + 1 })),
   walking: false,
+  level: 0,
+  setLevel: (level) => set({ level, selection: null }),
   setWalking: (walking) => set({ walking }),
   pendingUnderlayMpp: null,
   setPendingUnderlayMpp: (pendingUnderlayMpp) => set({ pendingUnderlayMpp }),

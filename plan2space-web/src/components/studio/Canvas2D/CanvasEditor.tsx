@@ -196,7 +196,7 @@ export function CanvasEditor() {
           else if (p && tool === 'measure') measureTool.onPointerDown(p)
           else if (p && tool === 'furniture') {
             const catalogId = useEditorStore.getState().pendingCatalogId
-            if (catalogId) useGeometryStore.getState().addFurniture({ catalogId, x: p.x, y: p.y, rotationDeg: 0 })
+            if (catalogId) useGeometryStore.getState().addFurniture({ catalogId, x: p.x, y: p.y, rotationDeg: 0, level: useEditorStore.getState().level })
           }
           else if (tool === 'select' && e.target === e.target.getStage()) useEditorStore.getState().select(null)
         }}

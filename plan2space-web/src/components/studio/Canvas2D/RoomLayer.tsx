@@ -4,6 +4,7 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { Point } from '../../../services/geometryService'
 import { toScreen } from './canvasTransform'
+import { levelOf } from '../../../lib/levels'
 
 const LABEL_WIDTH_PX = 140
 
@@ -24,7 +25,8 @@ function centre(points: Point[]): Point {
 
 // Room outlines (drawn under the walls) with their label and area.
 export function RoomLayer() {
-  const rooms = useGeometryStore((s) => s.rooms)
+  const level = useEditorStore((s) => s.level)
+  const rooms = useGeometryStore((s) => s.rooms).filter((r) => levelOf(r) === level)
   const tool = useEditorStore((s) => s.tool)
   const selection = useEditorStore((s) => s.selection)
   const select = useEditorStore((s) => s.select)

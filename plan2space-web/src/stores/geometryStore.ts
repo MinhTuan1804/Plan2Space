@@ -3,7 +3,7 @@ import { deriveRooms, fetchGeometry, saveGeometry, FurnitureItem, GeometryDto, W
 import {
   alongClamped, DEFAULT_WALL_HEIGHT_M, DEFAULT_WALL_THICKNESS_M, distanceAlong, interiorPoint, newId, pointInPolygon,
 } from '../lib/planGeometry'
-import { mergeFloors, planMerge } from '../lib/levels'
+import { levelOf, levelsIn, mergeFloors, planMerge } from '../lib/levels'
 import { roomTypeOf } from '../lib/roomTypes'
 
 // What a calibration puts back if its save fails: the plan and whether it had unsaved edits.
@@ -32,7 +32,7 @@ export interface GeometryState {
   applyAiResult: (dto: GeometryDto) => void
   updateWall: (wallId: string, points: Point[]) => void
   addOpening: (opening: Opening) => void
-  addWall: (points: Point[]) => string
+  addWall: (points: Point[], level?: number) => string
   deleteWall: (wallId: string) => void
   moveWallPoint: (wallId: string, index: number, point: Point) => void
   updateOpening: (openingId: string, patch: Partial<Pick<Opening, 'position' | 'widthMeters' | 'type'>>) => void
@@ -167,10 +167,10 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       markEdited()
     },
 
-    addWall: (points) => {
+    addWall: (points, level = 0) => {
       const id = newId()
       set((state) => ({
-        walls: [...state.walls, { id, points, thicknessMeters: DEFAULT_WALL_THICKNESS_M, heightMeters: DEFAULT_WALL_HEIGHT_M, version: 0 }],
+        walls: [...state.walls, { id, points, thicknessMeters: DEFAULT_WALL_THICKNESS_M, heightMeters: DEFAULT_WALL_HEIGHT_M, version: 0, level }],
         wallsEdited: true,
       }))
       markEdited()
@@ -312,17 +312,22 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       let roomsRefreshFailed = false
       if (wallsEdited) {
         try {
-          const derived = await deriveRooms(walls)
-          if (!Array.isArray(derived)) throw new Error('No rooms returned')
-          const previous = rooms
-          rooms = derived.map((r) => {
+          // Each level's walls enclose that level's rooms; deriving them together would merge the floors.
+          const previousRooms = rooms
+          const levels = levelsIn(walls)
+          const perLevel = await Promise.all((levels.length ? levels : [0]).map(async (level) => {
+            const derived = await deriveRooms(walls.filter((w) => levelOf(w) === level))
+            if (!Array.isArray(derived)) throw new Error('No rooms returned')
+            return { level, derived, previous: previousRooms.filter((r) => levelOf(r) === level) }
+          }))
+          rooms = perLevel.flatMap(({ level, derived, previous }) => derived.map((r) => {
             // A re-derived room keeps the type and the wall paint the user gave the room it replaces. Automatic
             // "Room N" names are not carried over: a room split in two would otherwise yield two rooms of that name.
             const probe = interiorPoint(r.points)
             const before = previous.find((old) => pointInPolygon(probe, old.points))
             const label = before && roomTypeOf(before.label) ? before.label : r.label
-            return { id: newId(), points: r.points, label, version: 0, ...(before?.wallColor ? { wallColor: before.wallColor } : {}) }
-          })
+            return { id: newId(), points: r.points, label, version: 0, level, ...(before?.wallColor ? { wallColor: before.wallColor } : {}) }
+          }))
         } catch {
           // The walls still save; the previous rooms stay until a later save derives them again.
           roomsRefreshFailed = true
