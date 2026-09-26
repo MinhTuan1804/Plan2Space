@@ -7,11 +7,13 @@ import { floorPatches, FloorKind, wallHeight } from './floorPlan'
 import { floorTexture } from './textures'
 import { FurnitureModels } from './FurnitureModels'
 import { OpeningModels } from './OpeningModels'
-import { levelElevation, levelScene, levelsIn, PlanData } from '../../../lib/levels'
+import { levelElevation, levelScene, levelsIn, PlanData, storeyHeight } from '../../../lib/levels'
+import { LevelShell } from './LevelShell'
+import { holeRooms } from './slabs'
 import { wallEndExtensions } from './wallJoints'
 import { splitWallFacesByRoom } from './wallPaint'
 
-const FLOOR_FALLBACK: Record<FloorKind, string> = { wood: '#b98a5a', tile: '#e6e2da' }
+const FLOOR_FALLBACK: Record<FloorKind, string> = { wood: '#b98a5a', tile: '#e6e2da', pebble: '#a39c8e' }
 
 export const WALL_PAINT = '#efe9df'
 
@@ -72,9 +74,12 @@ export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
     <>
       {(levels.length ? levels : [0]).map((level) => {
         const scene = levelScene({ walls, rooms, openings, furniture }, level)
+        const isTop = level === Math.max(0, ...levels)
+        const holes = holeRooms(rooms, level)
         return (
           <group key={level} position={[0, 0, levelElevation(walls, level)]}>
-            <LevelModel {...scene} showCeilings={showCeilings} />
+            <LevelModel {...scene} holes={holes} showCeilings={showCeilings && isTop} />
+            <LevelShell rooms={rooms} level={level} walls={scene.walls} isTop={isTop} height={storeyHeight(walls, level)} />
           </group>
         )
       })}
@@ -82,8 +87,13 @@ export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
   )
 }
 
-function LevelModel({ walls, rooms, openings, furniture, showCeilings }: PlanData & { showCeilings: boolean }) {
-  const floors = useMemo(() => floorPatches(rooms, walls), [rooms, walls])
+// Rooms over a stair or light well below (`holes`) get no floor, and so no ceiling: they are open.
+function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
+    PlanData & { showCeilings: boolean; holes: Room[] }) {
+  const floors = useMemo(() => {
+    const solid = rooms.filter((r) => !holes.includes(r))
+    return rooms.length > 0 && solid.length === 0 ? [] : floorPatches(solid, walls)
+  }, [rooms, walls, holes])
   const joints = useMemo(() => new Map(walls.map((w) => [w.id, wallEndExtensions(w, walls)])), [walls])
   const height = wallHeight(walls)
 
