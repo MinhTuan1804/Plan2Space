@@ -117,7 +117,9 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
             keptRooms.Add(room);
         }
 
-        var overlaps = new RoomOverlapDetector().FindOverlaps(keptRooms);
+        // Rooms stacked on different storeys share their outline; only rooms of one level may not overlap.
+        var overlaps = keptRooms.GroupBy(r => r.Level)
+            .SelectMany(level => new RoomOverlapDetector().FindOverlaps(level.ToList())).ToList();
         if (overlaps.Count > 0)
             throw new RoomOverlapException(overlaps);
 

@@ -343,4 +343,18 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
         var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", LevelPlan(0, Guid.NewGuid(), level, openingLevel));
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
+
+    // Stacked floors put rooms at the same place on different levels; only rooms of one level may not overlap.
+    [Fact]
+    public async Task RoomsStackedOnDifferentLevels_AreNotOverlaps()
+    {
+        var (client, project) = await AuthedProjectAsync($"lvl-stack-{Guid.NewGuid():N}@plan2space.dev");
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, openings = Array.Empty<object>(),
+            walls = new[] { new { points = new[] { new { x = 0.0, y = 0.0 }, new { x = 4.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 3.6, level = 0 } },
+            rooms = new[] { new { label = "Phòng khách", points = Square(0, 0, 3), level = 0 }, new { label = "Phòng ngủ", points = Square(0, 0, 3), level = 1 } },
+        });
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+    }
 }
