@@ -7,44 +7,76 @@ import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from '../Viewer3D/HouseModel'
 import { SunLight } from '../Viewer3D/SunLight'
 import { SKY_LIGHT, TONE_MAPPING } from '../Viewer3D/lighting'
-import { EYE_HEIGHT_M, MAX_STEP_S, freeSpot, furnitureBlockers, furnitureFootprints, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
+import { EYE_HEIGHT_M, MAX_STEP_S, freeSpot, furnitureBlockers, furnitureFootprints, groundAt, levelForHeight, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers, WalkLevels } from '../../../lib/walkPhysics'
+import { levelElevation, levelScene, levelsIn, storeyHeight } from '../../../lib/levels'
+import { holeRooms, stairWells } from '../Viewer3D/slabs'
+import { stairGeometry } from '../Viewer3D/stairs'
+import { wellEntry } from '../Viewer3D/StairModel'
+
+const EYE_EASE_S = 0.15
 import { pointInPolygon } from '../../../lib/planGeometry'
 import { useCatalog } from '../../../services/catalogService'
 import { useMovementKeys } from './useMovementKeys'
 
 // Plan (x, y) at height h is world (x, h, −y): the house group is rotated −90° about X.
+// The player walks on one level at a time: its walls and furniture block, and the ground underfoot
+// (floor or stair tread) sets the eye height, eased so a stair reads as steps rather than a jolt.
 function Player() {
   const walls = useGeometryStore((s) => s.walls)
   const rooms = useGeometryStore((s) => s.rooms)
   const openings = useGeometryStore((s) => s.openings)
   const furniture = useGeometryStore((s) => s.furniture)
   const catalog = useCatalog()
+  const levels = useMemo(() => { const l = levelsIn(walls); return l.length ? l : [0] }, [walls])
   // Beds, sofas and tables block like walls; wall-mounted items do not.
-  const blockers = useMemo(
-    () => [...wallBlockers(walls, openings), ...furnitureBlockers(furniture, (id) => catalog?.byId[id])],
-    [walls, openings, furniture, catalog],
-  )
-  const footprints = useMemo(() => furnitureFootprints(furniture, (id) => catalog?.byId[id]), [furniture, catalog])
-  const position = useRef(settleSpawn(spawnPoint(rooms, walls), blockers))
+  const blockersByLevel = useMemo(() => new Map(levels.map((level) => {
+    const scene = levelScene({ walls, rooms, openings, furniture }, level)
+    return [level, [...wallBlockers(scene.walls, scene.openings), ...furnitureBlockers(scene.furniture, (id) => catalog?.byId[id])]]
+  })), [levels, walls, rooms, openings, furniture, catalog])
+  const world = useMemo<WalkLevels>(() => ({
+    elevations: levels.map((level) => levelElevation(walls, level)),
+    holes: levels.map((level) => holeRooms(rooms, level).map((r) => r.points)),
+    stairs: levels.flatMap((level) => stairWells(rooms, level).map((well) => ({
+      level,
+      plan: stairGeometry(well.points, storeyHeight(walls, level),
+                          wellEntry(well, openings.filter((o) => (o.level ?? 0) === level))),
+    }))),
+  }), [levels, walls, rooms, openings])
+  const ground = levelScene({ walls, rooms, openings, furniture }, 0)
+  const footprints = useMemo(() => furnitureFootprints(ground.furniture, (id) => catalog?.byId[id]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [furniture, catalog])
+  const blockers0 = blockersByLevel.get(0) ?? []
+  const position = useRef(settleSpawn(spawnPoint(ground.rooms, ground.walls), blockers0))
+  const groundZ = useRef(0)
+  const eye = useRef(EYE_HEIGHT_M)
   // The catalog arrives after the first render: a start the furniture now covers moves to a free spot
   // in the same room (auto-furnished sofas and dining sets often cover the room centre).
   useEffect(() => {
-    const room = rooms.find((r) => pointInPolygon(position.current, r.points))
-    position.current = freeSpot(position.current, blockers, footprints, room?.points)
-  }, [rooms, blockers, footprints])
+    const room = ground.rooms.find((r) => pointInPolygon(position.current, r.points))
+    position.current = freeSpot(position.current, blockers0, footprints, room?.points)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms, blockers0, footprints])
   const keys = useMovementKeys()
   const { camera } = useThree()
   const look = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(() => {
-    camera.position.set(position.current.x, EYE_HEIGHT_M, -position.current.y)
+    camera.position.set(position.current.x, eye.current, -position.current.y)
   }, [camera])
 
   useFrame((_, delta) => {
+    const dt = Math.min(delta, MAX_STEP_S)
     camera.getWorldDirection(look)
-    const move = moveVector(keys.current, { x: look.x, y: -look.z }, Math.min(delta, MAX_STEP_S))
-    if (move.x !== 0 || move.y !== 0) position.current = stepPlayer(position.current, move, blockers)
-    camera.position.set(position.current.x, EYE_HEIGHT_M, -position.current.y)
+    const move = moveVector(keys.current, { x: look.x, y: -look.z }, dt)
+    if (move.x !== 0 || move.y !== 0) {
+      const level = levelForHeight(groundZ.current, world.elevations)
+      const next = stepPlayer(position.current, move, blockersByLevel.get(level) ?? [])
+      const z = groundAt(next, groundZ.current, world)
+      if (z !== null) { position.current = next; groundZ.current = z }
+    }
+    eye.current += (groundZ.current + EYE_HEIGHT_M - eye.current) * Math.min(1, delta / EYE_EASE_S)
+    camera.position.set(position.current.x, eye.current, -position.current.y)
   })
   return null
 }
