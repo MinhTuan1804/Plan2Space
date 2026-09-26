@@ -28,6 +28,11 @@ export function MergeFloorsDialog({ onClose }: { onClose: () => void }) {
         {merge.sizeMismatch && (
           <div role="alert" className="mb-2 text-amber-400">Hai khối này có vẻ không phải các tầng của cùng một nhà.</div>
         )}
+        {merge.otherBlocks > 0 && (
+          <div role="alert" className="mb-2 text-amber-400">
+            Bản vẽ còn {merge.otherBlocks} khối khác sẽ giữ nguyên ở tầng 1 (chỉ ghép 2 khối lớn nhất).
+          </div>
+        )}
         {['Chiều cao tầng 1 (m)', 'Chiều cao tầng 2 (m)'].map((label, i) => (
           <label key={i} className="mb-2 flex items-center justify-between">
             <span>{label}</span>

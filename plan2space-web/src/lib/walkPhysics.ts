@@ -184,6 +184,7 @@ const LEVEL_SNAP_M = 0.5
 export interface WalkLevels {
   elevations: number[]                              // floor height of each level
   holes: Point[][][]                                // per level: openings in its floor (stair and light wells)
+  floors?: Point[][][]                              // per level above the ground: where its slab is (its rooms)
   stairs: { level: number; plan: StairPlan }[]      // each stair rises from its level to the next
 }
 
@@ -198,7 +199,9 @@ export function groundAt(p: Point, current: number, w: WalkLevels): number | nul
   w.elevations.forEach((z, level) => {
     const onStair = w.stairs.some((s) => s.level === level && s.plan.surfaceHeight(p) !== null)
     const open = (w.holes[level] ?? []).some((hole) => pointInPolygon(p, hole))
-    if (!onStair && !open) candidates.push(z)
+    // Above the ground a floor exists only on the slab: past its edge there is air.
+    const onSlab = level === 0 || !w.floors || (w.floors[level] ?? []).some((f) => pointInPolygon(p, f))
+    if (!onStair && !open && onSlab) candidates.push(z)
   })
   let best: number | null = null
   for (const c of candidates) if (best === null || Math.abs(c - current) < Math.abs(best - current)) best = c

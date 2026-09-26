@@ -69,4 +69,18 @@ describe('editing one level at a time', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tầng 2' }))
     expect(useEditorStore.getState().level).toBe(1)
   })
+
+  it('opening another project goes back to the ground floor', async () => {
+    useEditorStore.getState().setLevel(1)
+    vi.mocked(geometryService.fetchGeometry).mockResolvedValue({ walls: [wall('x', 0)], rooms: [], openings: [], furniture: [], version: 1 })
+    await useGeometryStore.getState().loadFromServer('other')
+    expect(useEditorStore.getState().level).toBe(0)
+  })
+
+  it('a level that no longer has walls is left for one that does', () => {
+    useEditorStore.getState().setLevel(1)
+    useGeometryStore.setState({ walls: [wall('a', 0)] })          // every level-1 wall deleted
+    render(<MemoryRouter><StudioToolbar projectId="p" /></MemoryRouter>)
+    expect(useEditorStore.getState().level).toBe(0)
+  })
 })

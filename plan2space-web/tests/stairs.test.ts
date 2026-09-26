@@ -48,4 +48,20 @@ describe('generated stair', () => {
     const st = stairGeometry(l, 3, null)
     for (const t of [...st.treads, st.landing]) expect(inside(t, l)).toBe(true)
   })
+
+  it('flight one runs up the side the door is on', () => {
+    // Door on the long side (x = 2.8) near the lower end: tread 1 must be beside it, not across the well.
+    const st = stairGeometry(box(0, 0, 2.8, 3.8), 3.6, { x: 2.8, y: 0.5 })
+    const first = st.treads.reduce((a, b) => (a.top < b.top ? a : b))
+    expect(first.x).toBeGreaterThan(1.4)
+    expect(first.y).toBeLessThan(1.9)
+  })
+
+  it('no walkable surface where no step is drawn (a long well with capped goings)', () => {
+    const st = stairGeometry(box(0, 0, 2.8, 8), 3.0, null)   // goings cap at 0.30 m, flights end well short of the landing
+    const top = st.treads.reduce((a, b) => (a.top > b.top ? a : b))
+    const lastOfFlightOne = st.treads.filter((t) => t.x < 1.4).reduce((a, b) => (a.top > b.top ? a : b))
+    expect(st.surfaceHeight({ x: lastOfFlightOne.x, y: lastOfFlightOne.y + 1.0 })).toBeNull()   // past flight one, before the landing
+    expect(st.surfaceHeight({ x: top.x, y: top.y - 1.0 })).toBeNull()                            // past the top tread
+  })
 })

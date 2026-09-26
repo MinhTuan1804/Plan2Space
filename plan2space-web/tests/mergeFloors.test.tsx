@@ -60,4 +60,10 @@ describe('merge floors', () => {
     render(<MergeFloorsDialog onClose={() => {}} />)
     expect(screen.getByText(/không phải các tầng của cùng một nhà/)).toBeTruthy()
   })
+
+  it('says so when the plan has more blocks than the two it merges', () => {
+    useGeometryStore.setState({ walls: [...useGeometryStore.getState().walls, ...rect('x', 40, 0, 50, 10)] })
+    render(<MergeFloorsDialog onClose={() => {}} />)
+    expect(screen.getByText(/1 khối khác sẽ giữ nguyên/)).toBeTruthy()
+  })
 })

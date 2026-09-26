@@ -55,4 +55,21 @@ describe('auto-furnish', () => {
     vi.mocked(stagingService.suggestFurniture).mockRejectedValue({ response: { status: 400, data: { message: 'Calibrate the plan first.' } } })
     expect(await autoFurnishRoom('r1', catalog)).toBe('Calibrate the plan first.')
   })
+
+  it('furnishing an upstairs room places level-1 furniture and leaves the ground floor alone', async () => {
+    useGeometryStore.setState({
+      rooms: [{ id: 'r1', label: 'Phòng ngủ', version: 1, points: square, level: 1 }],
+      openings: [{ id: 'd0', wallId: 'w0', type: 'Door', position: { x: 2, y: 0 }, widthMeters: 0.9, sillHeightMeters: 0, version: 1, level: 0 },
+                 { id: 'd1', wallId: 'w1', type: 'Door', position: { x: 0, y: 2 }, widthMeters: 0.8, sillHeightMeters: 0, version: 1, level: 1 }],
+      furniture: [{ id: 'below', catalogId: 'sofa_set', x: 1, y: 1, rotationDeg: 0, level: 0 },
+                  { id: 'up', catalogId: 'tv', x: 1, y: 1, rotationDeg: 0, level: 1 }],
+    })
+    vi.mocked(stagingService.suggestFurniture).mockResolvedValue([{ item: 'bed_double', position: [2, 1.2], rotationDeg: 180 }])
+    expect(await autoFurnishRoom('r1', catalog)).toBeNull()
+    expect(vi.mocked(stagingService.suggestFurniture).mock.calls[0][3]).toEqual([[0, 2, 0.8]])   // only this level's doors
+    const f = useGeometryStore.getState().furniture
+    expect(f.find((x) => x.id === 'below')).toBeTruthy()                    // the ground floor keeps its sofa
+    expect(f.find((x) => x.id === 'up')).toBeUndefined()                    // the room's own furniture is replaced
+    expect(f.find((x) => x.catalogId === 'bed_double')!.level).toBe(1)
+  })
 })

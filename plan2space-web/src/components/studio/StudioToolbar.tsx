@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGeometryStore } from '../../stores/geometryStore'
 import { levelsIn, planMerge } from '../../lib/levels'
@@ -41,6 +41,11 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
   const levels = levelsIn(walls)
   const level = useEditorStore((s) => s.level)
   const setLevel = useEditorStore((s) => s.setLevel)
+  // A level left with no walls (all deleted) is left for one that has them, or the switch would vanish
+  // with the editor stuck on an empty level.
+  useEffect(() => {
+    if (levels.length > 0 && !levels.includes(level)) setLevel(levels[0])
+  }, [levels.join(), level, setLevel])
   const [merging, setMerging] = useState(false)
 
   const tool = useEditorStore((s) => s.tool)

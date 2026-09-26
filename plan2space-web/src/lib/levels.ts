@@ -4,7 +4,7 @@ import { polygonCentroid } from './planGeometry'
 export interface PlanData { walls: Wall[]; rooms: Room[]; openings: Opening[]; furniture: FurnitureItem[] }
 export interface Bounds { minX: number; minY: number; maxX: number; maxY: number }
 export interface Block { wallIds: string[]; bounds: Bounds }
-export interface MergePlan { lower: Block; upper: Block; offset: Point; sizeMismatch: boolean }
+export interface MergePlan { lower: Block; upper: Block; offset: Point; sizeMismatch: boolean; otherBlocks: number }
 
 const BLOCK_GAP_M = 0.5          // walls this close (slab to slab) belong to one house
 const MIN_BLOCK_AREA_M2 = 20
@@ -72,6 +72,7 @@ export function planMerge(walls: Wall[]): MergePlan | null {
     lower, upper,
     offset: bestOffset(walls, lower, upper),
     sizeMismatch: Math.min(area(lower.bounds), area(upper.bounds)) < 0.5 * Math.max(area(lower.bounds), area(upper.bounds)),
+    otherBlocks: blocks.length - 2,   // left where they are, at level 0
   }
 }
 

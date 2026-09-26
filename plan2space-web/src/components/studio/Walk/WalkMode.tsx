@@ -36,6 +36,7 @@ function Player() {
   const world = useMemo<WalkLevels>(() => ({
     elevations: levels.map((level) => levelElevation(walls, level)),
     holes: levels.map((level) => holeRooms(rooms, level).map((r) => r.points)),
+    floors: levels.map((level) => rooms.filter((r) => (r.level ?? 0) === level).map((r) => r.points)),
     stairs: levels.flatMap((level) => stairWells(rooms, level).map((well) => ({
       level,
       plan: stairGeometry(well.points, storeyHeight(walls, level),

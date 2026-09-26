@@ -5,6 +5,7 @@ import {
 } from '../lib/planGeometry'
 import { levelOf, levelsIn, mergeFloors, planMerge } from '../lib/levels'
 import { roomTypeOf } from '../lib/roomTypes'
+import { useEditorStore } from './editorStore'
 
 // What a calibration puts back if its save fails: the plan and whether it had unsaved edits.
 export interface PlanSnapshot {
@@ -42,7 +43,7 @@ export interface GeometryState {
   rotateFurniture: (id: string, deltaDeg: number) => void
   deleteFurniture: (id: string) => void
   flipDoorSwing: (openingId: string) => void
-  replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[]) => void
+  replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[], level?: number) => void
   updateRoomLabel: (roomId: string, label: string) => void
   setRoomWallColor: (roomId: string, color: string | null) => void
   mergeLevels: (heights: [number, number], swap?: boolean) => Promise<string | null>
@@ -129,6 +130,7 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
 
     loadFromServer: async (projectId) => {
       const dto = await fetchGeometry(projectId)
+      useEditorStore.getState().setLevel(0)          // another plan: start on its ground floor
       const version = dto.version ?? [...dto.walls, ...dto.rooms, ...dto.openings].reduce((m, e) => Math.max(m, e.version || 0), 0)
       const draft = readDraft(projectId)
       if (draft && draft.version === version) {
@@ -231,9 +233,10 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       markEdited()
     },
 
-    replaceFurnitureInRoom: (room, items) => {
+    replaceFurnitureInRoom: (room, items, level = 0) => {
+      // Only this level's furniture stands in the room; the same outline upstairs or below is another room.
       set((state) => ({ furniture: [
-        ...state.furniture.filter((f) => !pointInPolygon({ x: f.x, y: f.y }, room)),
+        ...state.furniture.filter((f) => levelOf(f) !== level || !pointInPolygon({ x: f.x, y: f.y }, room)),
         ...items.map((i) => ({ ...i, id: newId() })),
       ] }))
       markEdited()

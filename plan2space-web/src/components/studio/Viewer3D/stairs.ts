@@ -47,14 +47,18 @@ export function stairGeometry(well: Point[], rise: number, entry: Point | null):
   const lowEnd = alongX ? r.x0 : r.y0
   const highEnd = alongX ? r.x1 : r.y1
   const fromLow = !entry || Math.abs((alongX ? entry.x : entry.y) - lowEnd) <= Math.abs((alongX ? entry.x : entry.y) - highEnd)
+  // Flight one runs up the side of the well the entry is on.
+  const acrossLow = alongX ? r.y0 : r.x0
+  const flipT = !!entry && (alongX ? entry.y : entry.x) - acrossLow > S / 2
   const toPlan = (s: number, t: number): Point => {
     const along = fromLow ? lowEnd + s : highEnd - s
-    const across = (alongX ? r.y0 : r.x0) + t
+    const across = acrossLow + (flipT ? S - t : t)
     return alongX ? { x: along, y: across } : { x: across, y: along }
   }
   const toLocal = (p: Point) => {
     const along = alongX ? p.x : p.y
-    return { s: fromLow ? along - lowEnd : highEnd - along, t: (alongX ? p.y : p.x) - (alongX ? r.y0 : r.x0) }
+    const t = (alongX ? p.y : p.x) - acrossLow
+    return { s: fromLow ? along - lowEnd : highEnd - along, t: flipT ? S - t : t }
   }
 
   const n = Math.max(2, Math.round(rise / RISER_TARGET_M))
@@ -88,8 +92,9 @@ export function stairGeometry(well: Point[], rise: number, entry: Point | null):
       const { s, t } = toLocal(p)
       if (s < 0 || s > L || t < 0 || t > S) return null
       if (s >= L - ld) return (a + 1) * h
-      if (t <= fw) { const k = Math.floor(s / g) + 1; return k <= a ? k * h : (a + 1) * h }
-      if (t >= S - fw) { const j = Math.floor((L - ld - s) / g) + 1; return j <= b ? (a + 1 + j) * h : rise }
+      // Only where a step is drawn: past either flight (capped goings in a long well) there is no stair.
+      if (t <= fw) { const k = Math.floor(s / g) + 1; return k <= a ? k * h : null }
+      if (t >= S - fw) { const j = Math.floor((L - ld - s) / g) + 1; return j <= b ? (a + 1 + j) * h : null }
       return null
     },
   }

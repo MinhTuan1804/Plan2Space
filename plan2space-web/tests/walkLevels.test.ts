@@ -10,6 +10,7 @@ const stair = stairGeometry(box(0, 5.8, 2.8, 9.6), 3.6, { x: 1.4, y: 5.8 })
 const world: WalkLevels = {
   elevations: [0, 3.6],
   holes: [[], [box(0, 5.8, 2.8, 9.6), box(4.4, 8.4, 6.4, 9.6)]],
+  floors: [[], [box(0, 0, 10, 13.6)]],       // the first floor's slab: the house outline
   stairs: [{ level: 0, plan: stair }],
 }
 const byTop = [...stair.treads].sort((a, b) => a.top - b.top)
@@ -47,5 +48,10 @@ describe('walking between levels', () => {
     const high = byTop[15]
     expect(high.top - 0).toBeGreaterThan(MAX_STEP_M)
     expect(groundAt({ x: high.x, y: high.y }, 0, world)).toBeNull()
+  })
+
+  it('cannot walk off the edge of the first floor into the air', () => {
+    expect(groundAt({ x: 5, y: -2 }, 3.6, world)).toBeNull()        // outside the house, in front of it
+    expect(groundAt({ x: 5, y: -2 }, 0, world)).toBe(0)             // the ground outside is fine at ground level
   })
 })
