@@ -58,10 +58,10 @@
     },
     {
       "id": "sofa_set",
-      "name": "Bộ sofa phòng khách",
-      "widthM": 3.6,
+      "name": "Sofa góc chữ L",
+      "widthM": 3.4,
       "depthM": 2.7,
-      "heightM": 0.8,
+      "heightM": 0.66,
       "elevationM": 0,
       "againstWall": true,
       "roomTypes": [
@@ -142,10 +142,10 @@
     },
     {
       "id": "kitchen_counter",
-      "name": "Tủ bếp chữ L",
-      "widthM": 1.8,
-      "depthM": 1.6,
-      "heightM": 0.9,
+      "name": "Dãy tủ bếp",
+      "widthM": 3.62,
+      "depthM": 0.6,
+      "heightM": 2.07,
       "elevationM": 0,
       "againstWall": true,
       "roomTypes": [
@@ -240,44 +240,171 @@
     },
     {
       "id": "lavabo",
-      "name": "Lavabo",
-      "widthM": 0.5,
-      "depthM": 0.45,
-      "heightM": 0.85,
+      "name": "Tủ lavabo + gương",
+      "widthM": 0.9,
+      "depthM": 0.49,
+      "heightM": 1.9,
       "elevationM": 0,
       "againstWall": true,
       "roomTypes": [
         "bathroom"
       ],
-      "file": null,
+      "file": "/furniture/lavabo.glb",
       "attribution": ""
     },
     {
       "id": "shower",
-      "name": "Buồng tắm",
+      "name": "Buồng tắm đứng",
       "widthM": 0.9,
       "depthM": 0.9,
-      "heightM": 2.1,
+      "heightM": 2,
       "elevationM": 0,
       "againstWall": true,
       "roomTypes": [
         "bathroom"
       ],
-      "file": null,
+      "file": "/furniture/shower.glb",
       "attribution": ""
     },
     {
       "id": "washing_machine",
       "name": "Máy giặt",
-      "widthM": 0.6,
-      "depthM": 0.6,
-      "heightM": 0.85,
+      "widthM": 0.64,
+      "depthM": 0.59,
+      "heightM": 0.86,
       "elevationM": 0,
       "againstWall": true,
       "roomTypes": [
         "bathroom"
       ],
-      "file": null,
+      "file": "/furniture/washing_machine.glb",
+      "attribution": ""
+    },
+    {
+      "id": "sofa",
+      "name": "Sofa 3 chỗ",
+      "widthM": 2.03,
+      "depthM": 0.84,
+      "heightM": 0.72,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "living"
+      ],
+      "file": "/furniture/sofa.glb",
+      "attribution": ""
+    },
+    {
+      "id": "sofa_2",
+      "name": "Sofa 3 chỗ (mẫu 2)",
+      "widthM": 2,
+      "depthM": 0.84,
+      "heightM": 0.66,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "living"
+      ],
+      "file": "/furniture/sofa_2.glb",
+      "attribution": ""
+    },
+    {
+      "id": "armchair",
+      "name": "Ghế bành",
+      "widthM": 0.84,
+      "depthM": 0.86,
+      "heightM": 0.64,
+      "elevationM": 0,
+      "againstWall": false,
+      "roomTypes": [
+        "living"
+      ],
+      "file": "/furniture/armchair.glb",
+      "attribution": ""
+    },
+    {
+      "id": "tv_stand",
+      "name": "Kệ tivi",
+      "widthM": 2.19,
+      "depthM": 0.34,
+      "heightM": 0.52,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "living"
+      ],
+      "file": "/furniture/tv_stand.glb",
+      "attribution": ""
+    },
+    {
+      "id": "bookshelf",
+      "name": "Kệ sách",
+      "widthM": 0.9,
+      "depthM": 0.41,
+      "heightM": 2,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "living",
+        "bedroom"
+      ],
+      "file": "/furniture/bookshelf.glb",
+      "attribution": ""
+    },
+    {
+      "id": "shoe_cabinet",
+      "name": "Kệ giày",
+      "widthM": 0.8,
+      "depthM": 0.5,
+      "heightM": 1.02,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "living"
+      ],
+      "file": "/furniture/shoe_cabinet.glb",
+      "attribution": ""
+    },
+    {
+      "id": "dressing_table",
+      "name": "Bàn trang điểm",
+      "widthM": 1.52,
+      "depthM": 1.09,
+      "heightM": 1.24,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bedroom"
+      ],
+      "file": "/furniture/dressing_table.glb",
+      "attribution": ""
+    },
+    {
+      "id": "office_desk",
+      "name": "Bàn làm việc + ghế",
+      "widthM": 2.25,
+      "depthM": 1.88,
+      "heightM": 1.2,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "bedroom"
+      ],
+      "file": "/furniture/office_desk.glb",
+      "attribution": ""
+    },
+    {
+      "id": "kitchen_l",
+      "name": "Tủ bếp chữ L",
+      "widthM": 3.39,
+      "depthM": 2.03,
+      "heightM": 2.15,
+      "elevationM": 0,
+      "againstWall": true,
+      "roomTypes": [
+        "kitchen"
+      ],
+      "file": "/furniture/kitchen_l.glb",
       "attribution": ""
     }
   ],
@@ -285,11 +412,14 @@
     "bedroom": [
       "bed_double",
       "nightstand",
-      "wardrobe"
+      "wardrobe",
+      "dressing_table"
     ],
     "living": [
-      "sofa_set",
-      "tv"
+      "sofa",
+      "tv",
+      "coffee_table",
+      "armchair"
     ],
     "dining": [
       "dining_set"

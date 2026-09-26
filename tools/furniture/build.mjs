@@ -50,6 +50,7 @@ function triangleCount(doc) {
 
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).setLogger(new Logger(Logger.Verbosity.ERROR))
 const tooHeavy = []
+const missingSources = []
 const sources = JSON.parse(await readFile(path.join(here, 'sources.json'), 'utf8'))
 await MeshoptSimplifier.ready
 await mkdir(OUT_DIR, { recursive: true })
@@ -59,6 +60,18 @@ for (const s of sources.items) {
   const { source, yawOffsetDeg = 0, ...entry } = s
   if (!source) {
     items.push({ ...entry, file: null, attribution: s.attribution ?? '' })
+    continue
+  }
+  // A source removed from model3d/ keeps its earlier build instead of stopping the whole catalog.
+  const built = path.join(OUT_DIR, `${entry.id}.glb`)
+  if (!(await stat(path.join(SOURCE_DIR, source)).catch(() => null))) {
+    if (await stat(built).catch(() => null)) {
+      missingSources.push(`${entry.id} (${source}): kept the earlier build`)
+      items.push({ ...entry, file: `/furniture/${entry.id}.glb`, attribution: s.attribution ?? '' })
+    } else {
+      missingSources.push(`${entry.id} (${source}): no earlier build, drawn as a box`)
+      items.push({ ...entry, file: null, attribution: s.attribution ?? '' })
+    }
     continue
   }
   // Models with many textures stay over budget at 1024 px: halve the textures until the file fits.
@@ -118,6 +131,10 @@ const door = sources.door ? await buildDoor(sources.door) : null
 
 await writeFile(path.join(OUT_DIR, 'catalog.json'), JSON.stringify({ items, autoFurnish: sources.autoFurnish, door }, null, 2) + '\n')
 console.log(`catalog.json: ${items.length} items`)
+if (missingSources.length) {
+  console.log('\nSource missing from model3d/:')
+  for (const line of missingSources) console.log(`  ${line}`)
+}
 if (tooHeavy.length) {
   console.log('\nDrawn as boxes until a lighter model is supplied:')
   for (const line of tooHeavy) console.log(`  ${line}`)
