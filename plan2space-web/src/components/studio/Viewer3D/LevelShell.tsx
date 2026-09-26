@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { Point, Room, Wall } from '../../../services/geometryService'
-import { holeRooms, railingRuns, RAILING_HEIGHT_M, SLAB_THICKNESS_M } from './slabs'
+import { holeRooms, holesIn, isShaft, railingRuns, RAILING_HEIGHT_M, SLAB_THICKNESS_M } from './slabs'
 import { isLightWellName } from '../../../lib/roomTypes'
 
 const POST_SPACING_M = 1.2
 const RAIL_M = 0.05
 
-function Slab({ points }: { points: Point[] }) {
-  const geometry = useMemo(() => new THREE.ExtrudeGeometry(new THREE.Shape(points.map((p) => new THREE.Vector2(p.x, p.y))),
-    { depth: SLAB_THICKNESS_M, bevelEnabled: false }), [points])
+function Slab({ points, holes }: { points: Point[]; holes: Point[][] }) {
+  const geometry = useMemo(() => {
+    const shape = new THREE.Shape(points.map((p) => new THREE.Vector2(p.x, p.y)))
+    shape.holes = holes.map((h) => new THREE.Path(h.map((p) => new THREE.Vector2(p.x, p.y))))
+    return new THREE.ExtrudeGeometry(shape, { depth: SLAB_THICKNESS_M, bevelEnabled: false })
+  }, [points, holes])
   useEffect(() => () => geometry.dispose(), [geometry])
   // Top face at the level's floor, so it shows as the ceiling of the storey below.
   return (
@@ -54,10 +57,10 @@ function GlassRoof({ points, height }: { points: Point[]; height: number }) {
 export function LevelShell({ rooms, level, walls, isTop, height }:
     { rooms: Room[]; level: number; walls: Wall[]; isTop: boolean; height: number }) {
   const holes = holeRooms(rooms, level)
-  const slab = rooms.filter((r) => (r.level ?? 0) === level && !holes.includes(r))
+  const slab = rooms.filter((r) => (r.level ?? 0) === level && !isShaft(r, holes))
   return (
     <>
-      {level > 0 && slab.map((r) => <Slab key={r.id} points={r.points} />)}
+      {level > 0 && slab.map((r) => <Slab key={r.id} points={r.points} holes={holesIn(r, holes)} />)}
       {holes.flatMap((h) => railingRuns(h.points, walls).map(([a, b], i) => <Railing key={`${h.id}-${i}`} a={a} b={b} />))}
       {isTop && holes.filter((h) => isLightWellName(h.label)).map((h) => <GlassRoof key={h.id} points={h.points} height={height} />)}
     </>

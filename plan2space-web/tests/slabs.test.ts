@@ -46,3 +46,20 @@ describe('slabs and wells', () => {
     expect(floorPatches([rooms[2]], []).map((f) => f.kind)).toEqual(['pebble'])
   })
 })
+
+// The real merged house: upstairs the stair well opens into a wider "STAIRS / CORRIDOR LONG" room.
+describe('a stair well under a wider room', () => {
+  const real: Room[] = [
+    room('s0', 'STAIRS', 0, box(0, 5.8, 2.8, 9.6)),
+    room('c1', 'STAIRS / CORRIDOR LONG', 1, box(0, 5.8, 6.4, 9.6)),
+    room('b1', 'BEDROOM 3', 1, box(0, 0, 3.4, 5.8)),
+  ]
+  it('is still a stair well', () => {
+    expect(stairWells(real, 0).map((r) => r.id)).toEqual(['s0'])
+  })
+  it('opens only the well in the slab; the corridor keeps its floor', () => {
+    const slab = slabOutline(real, 1)
+    expect(slab.holes).toEqual([real[0].points])
+    expect(slab.outer).toHaveLength(2)
+  })
+})

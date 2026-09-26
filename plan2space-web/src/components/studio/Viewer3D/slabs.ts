@@ -13,25 +13,34 @@ const RAILING_SAMPLES_PER_M = 20
 const sameShaft = (a: Room, b: Room) =>
   pointInPolygon(polygonCentroid(a.points), b.points) && pointInPolygon(polygonCentroid(b.points), a.points)
 
+// A named room with a room of the storey above over its centre: the stair or light well rises into it.
+// The room above may be wider (a stair opening into a corridor); only the well itself is open.
 function shafts(rooms: Room[], level: number, named: (label: string) => boolean): Room[] {
-  const above = rooms.filter((r) => levelOf(r) === level + 1 && named(r.label))
-  return rooms.filter((r) => levelOf(r) === level && named(r.label) && above.some((u) => sameShaft(r, u)))
+  const above = rooms.filter((r) => levelOf(r) === level + 1)
+  return rooms.filter((r) => levelOf(r) === level && named(r.label)
+    && above.some((u) => pointInPolygon(polygonCentroid(r.points), u.points)))
 }
 
 export const stairWells = (rooms: Room[], level: number) => shafts(rooms, level, isStairName)
 export const lightWells = (rooms: Room[], level: number) => shafts(rooms, level, isLightWellName)
 
-// Rooms on `level` standing over a stair or light well below: open to the floor beneath, no slab or floor.
+// The openings in `level`'s floor: the stair and light wells of the storey below.
 export function holeRooms(rooms: Room[], level: number): Room[] {
   if (level < 1) return []
-  const below = [...stairWells(rooms, level - 1), ...lightWells(rooms, level - 1)]
-  return rooms.filter((r) => levelOf(r) === level && below.some((w) => sameShaft(r, w)))
+  return [...stairWells(rooms, level - 1), ...lightWells(rooms, level - 1)]
 }
 
-// The slab under `upperLevel`: its rooms, less the rooms standing over a stair or light well below.
+// A room standing exactly over a well is the well itself: open, no floor.
+export const isShaft = (r: Room, holes: Room[]) => holes.some((h) => sameShaft(r, h))
+
+// The wells to cut out of a room's floor: those whose centre lies in it (none when the room is the well).
+export const holesIn = (r: Room, holes: Room[]): Point[][] => isShaft(r, holes) ? []
+  : holes.filter((h) => pointInPolygon(polygonCentroid(h.points), r.points)).map((h) => h.points)
+
+// The slab under `upperLevel`: its rooms (less the wells themselves), open over the wells below.
 export function slabOutline(rooms: Room[], upperLevel: number): { outer: Point[][]; holes: Point[][] } {
   const holes = holeRooms(rooms, upperLevel)
-  const upper = rooms.filter((r) => levelOf(r) === upperLevel && !holes.includes(r))
+  const upper = rooms.filter((r) => levelOf(r) === upperLevel && !isShaft(r, holes))
   return { outer: upper.map((r) => r.points), holes: holes.map((r) => r.points) }
 }
 

@@ -9,7 +9,7 @@ import { FurnitureModels } from './FurnitureModels'
 import { OpeningModels } from './OpeningModels'
 import { levelElevation, levelScene, levelsIn, PlanData, storeyHeight } from '../../../lib/levels'
 import { LevelShell } from './LevelShell'
-import { holeRooms, stairWells } from './slabs'
+import { holeRooms, holesIn, isShaft, stairWells } from './slabs'
 import { StairModel } from './StairModel'
 import { wallEndExtensions } from './wallJoints'
 import { splitWallFacesByRoom } from './wallPaint'
@@ -35,17 +35,19 @@ function WallMesh({ wall, openings, extend, rooms }: { wall: Wall; openings: Ope
   return <mesh geometry={geometry} material={materials} castShadow receiveShadow />
 }
 
-function useShape(points: Point[]) {
-  const geometry = useMemo(
-    () => new THREE.ShapeGeometry(new THREE.Shape(points.map((p) => new THREE.Vector2(p.x, p.y)))),
-    [points]
-  )
+const NO_HOLES: Point[][] = []
+function useShape(points: Point[], holes: Point[][] = NO_HOLES) {
+  const geometry = useMemo(() => {
+    const shape = new THREE.Shape(points.map((p) => new THREE.Vector2(p.x, p.y)))
+    shape.holes = holes.map((h) => new THREE.Path(h.map((p) => new THREE.Vector2(p.x, p.y))))
+    return new THREE.ShapeGeometry(shape)
+  }, [points, holes])
   useEffect(() => () => geometry.dispose(), [geometry])
   return geometry
 }
 
-function Floor({ points, kind }: { points: Point[]; kind: FloorKind }) {
-  const geometry = useShape(points)
+function Floor({ points, kind, holes }: { points: Point[]; kind: FloorKind; holes?: Point[][] }) {
+  const geometry = useShape(points, holes)
   const texture = floorTexture(kind)
   return (
     <mesh geometry={geometry} position={[0, 0, 0.002]} receiveShadow>
@@ -91,12 +93,13 @@ export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
   )
 }
 
-// Rooms over a stair or light well below (`holes`) get no floor, and so no ceiling: they are open.
+// A room standing over a well below (`holes`) is open; a wider room keeps its floor with the well cut out.
 function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
     PlanData & { showCeilings: boolean; holes: Room[] }) {
   const floors = useMemo(() => {
-    const solid = rooms.filter((r) => !holes.includes(r))
-    return rooms.length > 0 && solid.length === 0 ? [] : floorPatches(solid, walls)
+    const solid = rooms.filter((r) => !isShaft(r, holes))
+    if (rooms.length > 0 && solid.length === 0) return []
+    return floorPatches(solid, walls).map((f, i) => ({ ...f, holes: solid[i] ? holesIn(solid[i], holes) : [] }))
   }, [rooms, walls, holes])
   const joints = useMemo(() => new Map(walls.map((w) => [w.id, wallEndExtensions(w, walls)])), [walls])
   const height = wallHeight(walls)
@@ -104,7 +107,7 @@ function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
   return (
     <>
       {walls.map((wall) => <WallMesh key={wall.id} wall={wall} openings={openings} extend={joints.get(wall.id)!} rooms={rooms} />)}
-      {floors.map((f, i) => <Floor key={i} points={f.points} kind={f.kind} />)}
+      {floors.map((f, i) => <Floor key={i} points={f.points} kind={f.kind} holes={f.holes} />)}
       {showCeilings && floors.map((f, i) => <Ceiling key={i} points={f.points} height={height} />)}
       <OpeningModels walls={walls} openings={openings} rooms={rooms} />
       <FurnitureModels furniture={furniture} />
