@@ -5,6 +5,7 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from './HouseModel'
 import { SunLight } from './SunLight'
+import { SKY_LIGHT, TONE_MAPPING } from './lighting'
 import { Eye, Footprints } from 'lucide-react'
 
 export function Scene() {
@@ -40,9 +41,9 @@ export function Scene() {
       <Canvas
         shadows
         camera={{ position: [12, 12, 12], fov: 45 }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: true, toneMapping: TONE_MAPPING }}
       >
-        <hemisphereLight args={['#fdfbf5', '#8a7a66', 0.8]} />
+        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity]} />
         <SunLight />
 
         <OrbitControls

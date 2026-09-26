@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { shadowFrame } from './floorPlan'
+import { SUN_INTENSITY } from './lighting'
 
 // The shadow-casting sun, aimed at the house and with a shadow box that covers all of it.
 export function SunLight() {
@@ -19,7 +20,7 @@ export function SunLight() {
       <directionalLight
         position={[centre[0] + 10, 25, centre[2] + 8]}
         target={target}
-        intensity={1.1}
+        intensity={SUN_INTENSITY}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}

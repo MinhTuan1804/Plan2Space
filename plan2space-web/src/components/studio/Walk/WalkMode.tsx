@@ -6,6 +6,7 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from '../Viewer3D/HouseModel'
 import { SunLight } from '../Viewer3D/SunLight'
+import { SKY_LIGHT, TONE_MAPPING } from '../Viewer3D/lighting'
 import { EYE_HEIGHT_M, MAX_STEP_S, freeSpot, furnitureBlockers, furnitureFootprints, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
 import { pointInPolygon } from '../../../lib/planGeometry'
 import { useCatalog } from '../../../services/catalogService'
@@ -56,9 +57,9 @@ export function WalkMode() {
 
   return (
     <div className="fixed inset-0 z-50 bg-black">
-      <Canvas shadows camera={{ fov: 70, near: 0.05, far: 200 }} gl={{ antialias: true }}>
+      <Canvas shadows camera={{ fov: 70, near: 0.05, far: 200 }} gl={{ antialias: true, toneMapping: TONE_MAPPING }}>
         <color attach="background" args={['#cfe3f5']} />
-        <hemisphereLight args={['#fdfbf5', '#8a7a66', 0.9]} />
+        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity]} />
         <SunLight />
         <group rotation={[-Math.PI / 2, 0, 0]}>
           <HouseModel showCeilings />
