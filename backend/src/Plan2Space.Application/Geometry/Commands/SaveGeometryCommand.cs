@@ -11,7 +11,7 @@ public record PointDto(double X, double Y);
 // Id is optional: a client that sends a wall's/room's existing id keeps it stable across saves,
 // so openings (which reference WallId) stay attached. Omitted id = new element.
 public record WallInput(List<PointDto> Points, double ThicknessMeters, double HeightMeters, Guid? Id = null);
-public record RoomInput(List<PointDto> Points, string Label, Guid? Id = null);
+public record RoomInput(List<PointDto> Points, string Label, Guid? Id = null, string? WallColor = null);
 public record OpeningInput(Guid WallId, string Type, PointDto Position, double WidthMeters, double SillHeightMeters, bool SwingFlipped = false);
 // Absolute plan position; front faces local -y at rotation 0 (CCW degrees).
 public record FurnitureInput(string CatalogId, double X, double Y, double RotationDeg, Guid? Id = null);
@@ -39,6 +39,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
 {
     public const int MaxFurniture = 2000;
     private static readonly Regex CatalogIdShape = new("^[a-z0-9_-]{1,64}$", RegexOptions.Compiled);
+    private static readonly Regex ColorShape = new("^#[0-9a-fA-F]{6}$", RegexOptions.Compiled);
     private readonly IPlan2SpaceDbContext _db;
     private static readonly GeometryFactory Factory = new();
 
@@ -91,12 +92,15 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
         var keptRooms = new List<Room>();
         foreach (var r in cmd.Rooms)
         {
+            if (r.WallColor is not null && !ColorShape.IsMatch(r.WallColor))
+                throw new GeometryValidationException("A room's wallColor must be #RRGGBB");
             var polygon = BuildRoomPolygon(r.Points);
             var room = r.Id is Guid id && existingRooms.TryGetValue(id, out var found) && usedRoomIds.Add(id)
                 ? found
                 : new Room { Id = FreshOrRequested(r.Id, takenRoomIds, existingRooms.Keys, usedRoomIds), ProjectId = project.Id };
             room.Geometry = polygon;
             room.Label = r.Label;
+            room.WallColor = r.WallColor;
             room.Version = nextVersion;
             keptRooms.Add(room);
         }

@@ -46,7 +46,7 @@ public class CopilotControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
         {
             baseVersion = 0,
             walls = new[] { new { id = wallId, points = new[] { new { x = 0.0, y = 0.0 }, new { x = 5.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 2.8 } },
-            rooms = new[] { new { id = roomId, label = "Kitchen", points = new[] { new { x = 0.0, y = 1.0 }, new { x = 4.0, y = 1.0 }, new { x = 4.0, y = 5.0 }, new { x = 0.0, y = 5.0 }, new { x = 0.0, y = 1.0 } } } },
+            rooms = new[] { new { id = roomId, label = "Kitchen", wallColor = "#CFE3D4", points = new[] { new { x = 0.0, y = 1.0 }, new { x = 4.0, y = 1.0 }, new { x = 4.0, y = 5.0 }, new { x = 0.0, y = 5.0 }, new { x = 0.0, y = 1.0 } } } },
             openings = new[] { new { wallId = wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 0.9, sillHeightMeters = 0.0, swingFlipped = doorSwingFlipped } }
         });
         res.EnsureSuccessStatusCode();
@@ -196,5 +196,19 @@ public class CopilotControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
         var door = (await GeometryAsync(client, projectId)).GetProperty("openings").EnumerateArray()
             .Single(o => o.GetProperty("type").GetString() == "Door");
         Assert.True(door.GetProperty("swingFlipped").GetBoolean());
+    }
+
+    // The co-pilot rebuilds the room list from the current plan: a room's wall paint survives an edit.
+    [Fact]
+    public async Task ACopilotEdit_KeepsARoomsWallColor()
+    {
+        var (client, projectId) = await ClientWithIntentAsync("copilot-paint@plan2space.dev",
+            g => Intent("add_opening", new { wall_id = g.Walls[0].Id.ToString(), type = "window", offset_m = 4.0, width_m = 1.2 }));
+        await SeedAsync(client, projectId);
+
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, projectId, "add a window")).StatusCode);
+
+        var room = (await GeometryAsync(client, projectId)).GetProperty("rooms")[0];
+        Assert.Equal("#CFE3D4", room.GetProperty("wallColor").GetString());
     }
 }

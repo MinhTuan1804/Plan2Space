@@ -6,7 +6,7 @@ namespace Plan2Space.Application.Geometry.Queries;
 
 public record GeometryPointDto(double X, double Y);
 public record WallDto(Guid Id, List<GeometryPointDto> Points, double ThicknessMeters, double HeightMeters, uint Version);
-public record RoomDto(Guid Id, List<GeometryPointDto> Points, string Label, uint Version);
+public record RoomDto(Guid Id, List<GeometryPointDto> Points, string Label, uint Version, string? WallColor = null);
 public record OpeningDto(Guid Id, Guid WallId, string Type, GeometryPointDto Position, double WidthMeters, double SillHeightMeters, uint Version, bool SwingFlipped = false);
 public record FurnitureDto(Guid Id, string CatalogId, double X, double Y, double RotationDeg);
 // Version = the project's geometry version; clients send it back as BaseVersion on the next save.
@@ -32,7 +32,7 @@ public class GetGeometryHandler : IRequestHandler<GetGeometryQuery, GeometryDto?
                 w.ThicknessMeters, w.HeightMeters, w.Version)).ToList(),
             project.Rooms.Select(r => new RoomDto(r.Id,
                 r.Geometry.Coordinates.Select(c => new GeometryPointDto(c.X, c.Y)).ToList(),
-                r.Label, r.Version)).ToList(),
+                r.Label, r.Version, r.WallColor)).ToList(),
             project.Openings.Select(o => new OpeningDto(o.Id, o.WallId, o.Type.ToString(),
                 new GeometryPointDto(o.Position.X, o.Position.Y), o.WidthMeters, o.SillHeightMeters, o.Version, o.SwingFlipped)).ToList(),
             project.Furniture.Select(f => new FurnitureDto(f.Id, f.CatalogId, f.X, f.Y, f.RotationDeg)).ToList(),

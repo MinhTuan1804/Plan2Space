@@ -32,6 +32,7 @@ public class Plan2SpaceDbContext : DbContext, IPlan2SpaceDbContext
         b.Entity<Room>().Property(r => r.Geometry).HasColumnType("geometry (Polygon)");
         b.Entity<Room>().Property(r => r.Version).IsConcurrencyToken();
 
+        b.Entity<Room>().Property(r => r.WallColor).HasMaxLength(7);
         b.Entity<Opening>().Property(o => o.Position).HasColumnType("geometry (Point)");
         b.Entity<Opening>().Property(o => o.Version).IsConcurrencyToken();
 

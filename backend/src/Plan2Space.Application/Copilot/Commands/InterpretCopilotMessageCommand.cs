@@ -34,7 +34,7 @@ public class InterpretCopilotMessageHandler : IRequestHandler<InterpretCopilotMe
 
         // Start from the full current plan (ids kept) so an edit never drops rooms/openings.
         var walls = geometry.Walls.Select(w => new WallInput(Points(w.Points), w.ThicknessMeters, w.HeightMeters, w.Id)).ToList();
-        var rooms = geometry.Rooms.Select(r => new RoomInput(Points(r.Points), r.Label, r.Id)).ToList();
+        var rooms = geometry.Rooms.Select(r => new RoomInput(Points(r.Points), r.Label, r.Id, r.WallColor)).ToList();
         var openings = geometry.Openings.Select(o => new OpeningInput(
             o.WallId, o.Type, new PointDto(o.Position.X, o.Position.Y), o.WidthMeters, o.SillHeightMeters, o.SwingFlipped)).ToList();
 

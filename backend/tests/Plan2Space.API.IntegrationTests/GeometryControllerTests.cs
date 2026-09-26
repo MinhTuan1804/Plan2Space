@@ -283,4 +283,25 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
         door = (await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry")).GetProperty("openings")[0];
         Assert.False(door.GetProperty("swingFlipped").GetBoolean());
     }
+
+    // A room's wall paint is saved with the plan; absent means the default paint; only #RRGGBB is accepted.
+    [Theory]
+    [InlineData("#A1B2C3", true)]
+    [InlineData(null, true)]
+    [InlineData("red", false)]
+    [InlineData("#12345", false)]
+    public async Task RoomWallColor_RoundTripsAndIsValidated(string? color, bool ok)
+    {
+        var (client, project) = await AuthedProjectAsync($"paint-{Guid.NewGuid():N}@plan2space.dev");
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, walls = OneWall(), openings = Array.Empty<object>(),
+            rooms = new[] { new { label = "Phòng ngủ", points = Square(0, 1, 3), wallColor = color } }
+        });
+        Assert.Equal(ok ? HttpStatusCode.OK : HttpStatusCode.BadRequest, res.StatusCode);
+        if (!ok) return;
+        var room = (await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry")).GetProperty("rooms")[0];
+        if (color is null) Assert.Equal(JsonValueKind.Null, room.GetProperty("wallColor").ValueKind);
+        else Assert.Equal(color, room.GetProperty("wallColor").GetString());
+    }
 }
