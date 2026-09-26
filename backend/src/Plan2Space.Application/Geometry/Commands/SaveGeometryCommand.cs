@@ -12,7 +12,7 @@ public record PointDto(double X, double Y);
 // so openings (which reference WallId) stay attached. Omitted id = new element.
 public record WallInput(List<PointDto> Points, double ThicknessMeters, double HeightMeters, Guid? Id = null, int Level = 0);
 public record RoomInput(List<PointDto> Points, string Label, Guid? Id = null, string? WallColor = null, int Level = 0);
-public record OpeningInput(Guid WallId, string Type, PointDto Position, double WidthMeters, double SillHeightMeters, bool SwingFlipped = false, int Level = 0);
+public record OpeningInput(Guid WallId, string Type, PointDto Position, double WidthMeters, double SillHeightMeters, bool SwingFlipped = false, int Level = 0, string? DoorStyle = null);
 // Absolute plan position; front faces local -y at rotation 0 (CCW degrees).
 public record FurnitureInput(string CatalogId, double X, double Y, double RotationDeg, Guid? Id = null, int Level = 0);
 
@@ -132,6 +132,8 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
             CheckLevel(o.Level);
             if (keptWalls.First(w => w.Id == wallId).Level != o.Level)
                 throw new GeometryValidationException("An opening's level must match its wall's level");
+            if (o.DoorStyle is not (null or "standard" or "garage"))
+                throw new GeometryValidationException($"Unknown door style '{o.DoorStyle}'");
             if (!Enum.TryParse<OpeningType>(o.Type, ignoreCase: true, out var type))
                 throw new GeometryValidationException($"Unknown opening type '{o.Type}'");
             return new Opening
@@ -143,6 +145,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
                 WidthMeters = o.WidthMeters,
                 SillHeightMeters = o.SillHeightMeters,
                 SwingFlipped = o.SwingFlipped,
+                DoorStyle = o.DoorStyle,
                 Level = o.Level,
                 Version = nextVersion
             };

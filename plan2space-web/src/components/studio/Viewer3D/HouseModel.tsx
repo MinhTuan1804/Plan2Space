@@ -20,7 +20,7 @@ export const WALL_PAINT = '#efe9df'
 
 // Each long face takes the paint of the room it faces; everything else keeps the default paint.
 function WallMesh({ wall, openings, extend, rooms }: { wall: Wall; openings: Opening[]; extend: [number, number]; rooms: Room[] }) {
-  const solid = useWallGeometry(wall, openings, extend)
+  const solid = useWallGeometry(wall, openings, extend, rooms)
   // Regrouped when the walls or the room outlines change; a new colour only swaps materials.
   const roomShapes = JSON.stringify(rooms.map((r) => [r.id, r.points]))
   // eslint-disable-next-line react-hooks/exhaustive-deps

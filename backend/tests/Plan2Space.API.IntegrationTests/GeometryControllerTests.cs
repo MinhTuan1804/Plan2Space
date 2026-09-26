@@ -357,4 +357,25 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
         });
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
     }
+
+    // A door's model: null picks automatically (a garage door on a garage's outside wall), or the user's choice.
+    [Theory]
+    [InlineData("garage", HttpStatusCode.OK)]
+    [InlineData("standard", HttpStatusCode.OK)]
+    [InlineData("rolling", HttpStatusCode.BadRequest)]
+    public async Task DoorStyle_RoundTrips_AndIsChecked(string style, HttpStatusCode expected)
+    {
+        var (client, project) = await AuthedProjectAsync($"style-{Guid.NewGuid():N}@plan2space.dev");
+        var wallId = Guid.NewGuid();
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, rooms = Array.Empty<object>(),
+            walls = new[] { new { id = wallId, points = new[] { new { x = 0.0, y = 0.0 }, new { x = 4.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 3.6 } },
+            openings = new[] { new { wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 2.4, sillHeightMeters = 0.0, doorStyle = style } },
+        });
+        Assert.Equal(expected, res.StatusCode);
+        if (expected != HttpStatusCode.OK) return;
+        var g = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
+        Assert.Equal(style, g.GetProperty("openings")[0].GetProperty("doorStyle").GetString());
+    }
 }

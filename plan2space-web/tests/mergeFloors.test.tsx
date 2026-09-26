@@ -47,12 +47,12 @@ describe('merge floors', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Đảo' }))
     expect(screen.getByText(/Tầng 1: khối phải/)).toBeTruthy()
     const [h1, h2] = screen.getAllByRole('spinbutton') as HTMLInputElement[]
-    expect(h1.value).toBe('3.6'); expect(h2.value).toBe('3.5')
+    expect(h1.value).toBe('3.6'); expect(h2.value).toBe('3.6')
     fireEvent.change(h1, { target: { value: '7' } })
     expect((screen.getByRole('button', { name: 'Ghép' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.change(h1, { target: { value: '3.6' } })
     fireEvent.click(screen.getByRole('button', { name: 'Ghép' }))
-    expect(merge).toHaveBeenCalledWith([3.6, 3.5], true)
+    expect(merge).toHaveBeenCalledWith([3.6, 3.6], true)
   })
 
   it('warns when the two blocks do not look like floors of one house', () => {

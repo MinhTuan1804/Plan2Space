@@ -128,8 +128,15 @@ async function buildDoor(spec) {
   return { frame: '/furniture/door_frame.glb', leaf: '/furniture/door_leaf.glb', ...sizes, attribution: spec.attribution ?? '' }
 }
 const door = sources.door ? await buildDoor(sources.door) : null
+// The garage door: one model (a roller door, its box on the inside, +z), stretched to the doorway in the 3D view.
+async function buildGarageDoor({ source, attribution = '', ...entry }) {
+  const result = await normalise(path.join(SOURCE_DIR, source), entry, 0, BUDGET_STEPS[1])
+  console.log(`garage_door      ${(result.size / 1e6).toFixed(2)} MB  ${Math.round(result.tris)}→${Math.round(result.trisOut)} tris`)
+  return { file: `/furniture/${entry.id}.glb`, widthM: entry.widthM, heightM: entry.heightM, depthM: entry.depthM, attribution }
+}
+const garageDoor = sources.garageDoor ? await buildGarageDoor(sources.garageDoor) : null
 
-await writeFile(path.join(OUT_DIR, 'catalog.json'), JSON.stringify({ items, autoFurnish: sources.autoFurnish, door }, null, 2) + '\n')
+await writeFile(path.join(OUT_DIR, 'catalog.json'), JSON.stringify({ items, autoFurnish: sources.autoFurnish, door, garageDoor }, null, 2) + '\n')
 console.log(`catalog.json: ${items.length} items`)
 if (missingSources.length) {
   console.log('\nSource missing from model3d/:')

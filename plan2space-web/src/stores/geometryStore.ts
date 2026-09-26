@@ -43,6 +43,7 @@ export interface GeometryState {
   rotateFurniture: (id: string, deltaDeg: number) => void
   deleteFurniture: (id: string) => void
   flipDoorSwing: (openingId: string) => void
+  setDoorStyle: (openingId: string, style: Opening['doorStyle']) => void
   replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[], level?: number) => void
   updateRoomLabel: (roomId: string, label: string) => void
   setRoomWallColor: (roomId: string, color: string | null) => void
@@ -217,6 +218,11 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       markEdited()
     },
 
+    setDoorStyle: (openingId, style) => {
+      set((state) => ({ openings: state.openings.map((o) => (o.id === openingId ? { ...o, doorStyle: style } : o)) }))
+      markEdited()
+    },
+
     moveFurniture: (id, x, y) => {
       set((state) => ({ furniture: state.furniture.map((f) => (f.id === id ? { ...f, x, y } : f)) }))
       markEdited()
@@ -340,7 +346,7 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
         const result = await saveGeometry(projectId, version, {
           walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters, level: w.level ?? 0 })),
           rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label, wallColor: r.wallColor ?? null, level: r.level ?? 0 })),
-          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters, swingFlipped: !!o.swingFlipped, level: o.level ?? 0 })),
+          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters, swingFlipped: !!o.swingFlipped, level: o.level ?? 0, doorStyle: o.doorStyle ?? null })),
           furniture: furniture.map((f) => ({ id: f.id, catalogId: f.catalogId, x: f.x, y: f.y, rotationDeg: f.rotationDeg, level: f.level ?? 0 })),
         })
         if (editSeq === seq) {

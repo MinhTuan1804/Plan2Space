@@ -20,10 +20,13 @@ export interface CatalogDoor extends DoorSpec {
   leaf: string
 }
 
+export interface CatalogGarageDoor { file: string; widthM: number; heightM: number; depthM: number }
+
 export interface Catalog {
   items: CatalogEntry[]
   autoFurnish: Partial<Record<RoomType, string[]>>   // types with no list furnish nothing
   door?: CatalogDoor | null
+  garageDoor?: CatalogGarageDoor | null
   byId: Record<string, CatalogEntry>
 }
 

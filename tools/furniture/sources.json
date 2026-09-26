@@ -418,5 +418,13 @@
     "frameNode": "Plane.002_Door_0",
     "leafNode": "Plane.001",
     "hingeSide": "min-x"
+  },
+  "garageDoor": {
+    "id": "garage_door",
+    "source": "garage_door.glb",
+    "widthM": 4.88,
+    "depthM": 0.46,
+    "heightM": 2.44,
+    "attribution": ""
   }
 }

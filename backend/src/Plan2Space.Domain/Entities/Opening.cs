@@ -15,6 +15,7 @@ public class Opening
     public double WidthMeters { get; set; }
     public double SillHeightMeters { get; set; }       // 0 for doors
     public bool SwingFlipped { get; set; }             // a door swings to the other side than the automatic choice
+    public string? DoorStyle { get; set; }             // null: chosen automatically; "standard" or "garage"
     public int Level { get; set; }                     // storey: 0 = ground floor
     public uint Version { get; set; } = 1;
 }

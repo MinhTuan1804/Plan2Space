@@ -1,20 +1,21 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { Wall, Opening } from '../../../services/geometryService'
+import { Wall, Opening, Room } from '../../../services/geometryService'
+import { isGarageDoor } from '../../../lib/doorSwing'
 import { buildWallGeometry } from './buildWallGeometry'
 import { cutOpeningsIntoWall } from './cutOpenings'
 
 // Rebuilds (and re-runs CSG for) a wall only when that wall or its own openings change,
 // and frees the previous GPU buffers — keeps edits to one wall from re-cutting every wall.
-export function useWallGeometry(wall: Wall, openings: Opening[], extend: [number, number] = [0, 0]): THREE.BufferGeometry {
+export function useWallGeometry(wall: Wall, openings: Opening[], extend: [number, number] = [0, 0], rooms: Room[] = []): THREE.BufferGeometry {
   const ownOpenings = openings.filter((o) => o.wallId === wall.id)
   const openingsKey = JSON.stringify(
-    ownOpenings.map((o) => [o.id, o.type, o.position.x, o.position.y, o.widthMeters, o.sillHeightMeters])
+    ownOpenings.map((o) => [o.id, o.type, o.position.x, o.position.y, o.widthMeters, o.sillHeightMeters, isGarageDoor(o, wall, rooms)])
   )
 
   const geometry = useMemo(() => {
     const solid = buildWallGeometry(wall, extend)
-    const cut = cutOpeningsIntoWall(solid, wall, ownOpenings)
+    const cut = cutOpeningsIntoWall(solid, wall, ownOpenings, rooms)
     if (cut !== solid) solid.dispose()
     return cut
     // ownOpenings is captured through openingsKey, so an unrelated wall's opening doesn't trigger a rebuild.
