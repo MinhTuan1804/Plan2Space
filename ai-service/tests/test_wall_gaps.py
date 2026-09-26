@@ -35,3 +35,19 @@ def test_a_gap_next_to_a_square_pier_is_found_whatever_way_the_pier_points():
     walls = [_wall((0.1, -0.11), (0.1, 0.11)), _wall((3.2, 0), (4.8, 0))]
     widths = [round(w, 1) for _, _, w in find_wall_gaps(walls)]
     assert widths == [3.1]
+
+
+def test_a_gap_must_run_along_the_wall_not_merely_at_a_small_angle():
+    # A 0.3 m stub in the front wall and a wall 4.2 m away are within 3 degrees of each other, so the
+    # "gap" between them was bridged diagonally and split a bedroom in two.
+    walls = [_wall((27.5, 0), (27.8, 0)), _wall((28.0, 3.6), (28.0, 4.2))]
+    assert find_wall_gaps(walls) == []
+
+
+def test_the_gap_beside_a_pier_runs_along_the_wall_it_interrupts():
+    # The garage pier's centreline crosses the wall, so its end sits 11 cm off the wall's line and the
+    # doorway came out skewed. The gap must lie on the wall it interrupts.
+    walls = [_wall((0.1, -0.11), (0.1, 0.11)), _wall((3.2, 0), (4.8, 0))]
+    [(u, v, width)] = find_wall_gaps(walls)
+    assert round(u[1], 6) == 0.0 and round(v[1], 6) == 0.0
+    assert round(width, 2) == 3.1

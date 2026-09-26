@@ -1,6 +1,8 @@
 import math
 
 import ezdxf
+from shapely.geometry import box
+from shapely.ops import unary_union
 from ezdxf import recover
 from ezdxf.math import Matrix44
 
@@ -188,6 +190,8 @@ def _join_t_ends(walls: list[dict]) -> None:
 
 # A line across a paired wall's thickness at its centreline closes the wall's outline (at every door jamb
 # and wall end); it is drawing, not a wall.
+# A rectangle this much covered by the other wall rectangles is a patch drawn over a junction.
+PATCH_MAX_COVERED = 0.5
 END_CAP_TOLERANCE_M = 0.02
 
 
@@ -214,7 +218,7 @@ def _caps_a_wall(seg, paired: list[dict]) -> bool:
 def _rectangle_walls(walls: list[dict]) -> tuple[list[dict], list[dict]]:
     """Splits off closed four-corner right-angled outlines whose short side is a wall thickness, as centreline
     walls (marked paired, so T-ends still join); everything else is returned for face pairing."""
-    rects, rest = [], []
+    rects, rest, boxes = [], [], []
     for wall in walls:
         pts = [tuple(p) for p in wall["points"]]
         if len(pts) == 5 and pts[0] == pts[-1]:
@@ -237,7 +241,14 @@ def _rectangle_walls(walls: list[dict]) -> tuple[list[dict], list[dict]]:
         end = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
         rects.append({"points": [list(start), list(end)], "thickness_m": round(short, 6),
                       "height_m": DEFAULT_WALL_HEIGHT_M, "_paired": True})
-    return rects, rest
+        boxes.append(box(min(p[0] for p in pts), min(p[1] for p in pts),
+                         max(p[0] for p in pts), max(p[1] for p in pts)))
+    # A rectangle drawn mostly on top of another is a patch closing a wall junction, not a wall. Left in,
+    # it merges with its neighbours and skews them into diagonals that jut into the room.
+    keep = [i for i, b in enumerate(boxes)
+            if b.intersection(unary_union([o for j, o in enumerate(boxes) if j != i])).area
+            <= PATCH_MAX_COVERED * b.area]
+    return [rects[i] for i in keep], rest
 
 
 def _pair_wall_faces(walls: list[dict]) -> list[dict]:

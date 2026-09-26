@@ -168,3 +168,27 @@ def test_room_names_written_in_the_drawing_label_the_rooms(tmp_path):
     rooms = [{"points": [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]], "label": "Room 1"},
              {"points": [[5, 0], [9, 0], [9, 4], [5, 4], [5, 0]], "label": "Room 2"}]
     assert [r["label"] for r in label_rooms(rooms, names)] == ["GARA", "Room 2"]
+
+
+def test_a_small_square_patch_at_a_wall_junction_is_not_a_wall(tmp_path):
+    # Plans close a corner between two wall runs with a little square. As a wall it became a 10 cm block
+    # standing in the room. A rectangle is a wall run only if it is clearly longer than it is thick.
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    for x0, y0, x1, y1 in [(22745, 5800, 22855, 5900), (22700, 5745, 26400, 5855)]:
+        doc.modelspace().add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "WALL"})
+    path = tmp_path / "patch.dxf"; doc.saveas(path)
+    walls = parse_dxf(str(path))["walls"]
+    assert len(walls) == 1
+    assert round(walls[0]["thickness_m"], 3) == 0.11
+
+
+def test_a_pier_standing_at_a_doorway_is_kept(tmp_path):
+    # The garage pier is as square as a junction patch but stands at the door jamb, not on another wall.
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    for x0, y0, x1, y1 in [(0, -110, 200, 110), (-110, 0, 110, 6600), (3200, -110, 4800, 110)]:
+        doc.modelspace().add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "WALL"})
+    path = tmp_path / "pier.dxf"; doc.saveas(path)
+    walls = parse_dxf(str(path))["walls"]
+    assert any(round(w["thickness_m"], 3) == 0.2 for w in walls), "the pier is gone"   # only it is 0.2 thick
