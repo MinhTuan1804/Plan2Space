@@ -306,10 +306,10 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       }
       try {
         const result = await saveGeometry(projectId, version, {
-          walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters })),
-          rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label, wallColor: r.wallColor ?? null })),
-          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters, swingFlipped: !!o.swingFlipped })),
-          furniture: furniture.map((f) => ({ id: f.id, catalogId: f.catalogId, x: f.x, y: f.y, rotationDeg: f.rotationDeg })),
+          walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters, level: w.level ?? 0 })),
+          rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label, wallColor: r.wallColor ?? null, level: r.level ?? 0 })),
+          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters, swingFlipped: !!o.swingFlipped, level: o.level ?? 0 })),
+          furniture: furniture.map((f) => ({ id: f.id, catalogId: f.catalogId, x: f.x, y: f.y, rotationDeg: f.rotationDeg, level: f.level ?? 0 })),
         })
         if (editSeq === seq) {
           clearDraft(projectId)

@@ -11,6 +11,7 @@ export interface Wall {
   thicknessMeters: number
   heightMeters: number
   version: number
+  level?: number              // storey, 0 = ground floor
 }
 
 export interface Room {
@@ -19,6 +20,7 @@ export interface Room {
   label: string
   version: number
   wallColor?: string          // #RRGGBB paint of the wall faces inside this room
+  level?: number
 }
 
 export interface Opening {
@@ -30,6 +32,7 @@ export interface Opening {
   sillHeightMeters: number
   version: number
   swingFlipped?: boolean      // the door swings the other way than the automatic choice
+  level?: number
 }
 
 // Absolute plan position; the item's front faces local -y at rotation 0 (CCW degrees).
@@ -39,6 +42,7 @@ export interface FurnitureItem {
   x: number
   y: number
   rotationDeg: number
+  level?: number
 }
 
 export interface GeometryDto {
@@ -64,10 +68,10 @@ export async function saveGeometry(
   projectId: string,
   baseVersion: number,
   payload: {
-    walls: { id?: string; points: Point[]; thicknessMeters: number; heightMeters: number }[]
-    rooms: { id?: string; points: Point[]; label: string; wallColor?: string | null }[]
-    openings: { id?: string; wallId: string; type: string; position: Point; widthMeters: number; sillHeightMeters: number; swingFlipped?: boolean }[]
-    furniture: { id?: string; catalogId: string; x: number; y: number; rotationDeg: number }[]
+    walls: { id?: string; points: Point[]; thicknessMeters: number; heightMeters: number; level?: number }[]
+    rooms: { id?: string; points: Point[]; label: string; wallColor?: string | null; level?: number }[]
+    openings: { id?: string; wallId: string; type: string; position: Point; widthMeters: number; sillHeightMeters: number; swingFlipped?: boolean; level?: number }[]
+    furniture: { id?: string; catalogId: string; x: number; y: number; rotationDeg: number; level?: number }[]
   }
 ): Promise<{ version: number }> {
   const { data } = await apiClient.put(`/projects/${projectId}/geometry`, { baseVersion, ...payload })
