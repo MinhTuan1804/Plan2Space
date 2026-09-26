@@ -5,7 +5,7 @@ from PIL import Image
 
 from workers.celery_app import celery_app
 from pipeline.ocr_dimensions import extract_dimensions   # first: loads zlib users before paddle
-from pipeline.dxf_parser import parse_dxf
+from pipeline.dxf_job import process_dxf
 from pipeline.vectorize import vectorize_raster
 from pipeline.gnn_healing import heal_wall_topology
 from pipeline.symbol_detect import detect_symbols
@@ -23,7 +23,6 @@ DXF_EXTENSIONS = (".dxf",)
 # Only a PNG/JPEG upload is itself the image the editor can draw under the plan (a PDF is rendered).
 UNDERLAY_EXTENSIONS = (".png", ".jpg", ".jpeg")
 SNAP_TOLERANCE_M = 0.05          # raster input: vectorization noise
-DXF_SNAP_TOLERANCE_M = 0.005     # CAD input is exact: stay within the ±5 mm spatial tolerance
 # Used when no dimension label can calibrate a raster plan (~1:100 drawing scanned at ~130 dpi).
 DEFAULT_METRES_PER_PIXEL = float(os.environ.get("P2S_DEFAULT_METRES_PER_PIXEL", "0.02"))
 # A job must never run forever (p95 target is 30 s): soft limit -> readable failure, hard limit -> killed.
@@ -59,23 +58,17 @@ def vectorize_job(job_id: str, project_id: str, file_object_key: str) -> dict:
 
         progress = 30
         report_progress(job_id, "Running", progress)
-        is_dxf = local_path.lower().endswith(DXF_EXTENSIONS)
         underlay = None
-        if is_dxf:
-            parsed = parse_dxf(local_path)
-            # A DXF states its openings as gaps in the wall; no symbol detector is involved.
-            walls, symbols, room_names = parsed["walls"], parsed["openings"], parsed["room_names"]
+        if local_path.lower().endswith(DXF_EXTENSIONS):
+            result = process_dxf(local_path)
         else:
             walls, symbols, underlay = _raster_to_project_space(local_path)
-            room_names = []
-
-        progress = 60
-        report_progress(job_id, "Running", progress)
-        healed_walls = heal_wall_topology(walls, snap_tolerance_m=DXF_SNAP_TOLERANCE_M if is_dxf else SNAP_TOLERANCE_M)
-
-        progress = 80
-        report_progress(job_id, "Running", progress)
-        result = serialize_pipeline_result(healed_walls, symbols, label_rooms(rooms_from_walls(healed_walls), room_names))
+            progress = 60
+            report_progress(job_id, "Running", progress)
+            healed_walls = heal_wall_topology(walls, snap_tolerance_m=SNAP_TOLERANCE_M)
+            progress = 80
+            report_progress(job_id, "Running", progress)
+            result = serialize_pipeline_result(healed_walls, symbols, label_rooms(rooms_from_walls(healed_walls), []))
 
         push_geometry_to_api(project_id, result)
         report_progress(job_id, "Completed", 100)
