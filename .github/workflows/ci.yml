@@ -10,9 +10,26 @@ jobs:
         with: { dotnet-version: '8.0.x' }
       # SchemaTests migrate against the compose PostGIS on host port 5433 (docker-compose.override.yml);
       # the API integration tests start their own Testcontainers.
+      # Docker Hub now and then refuses a pull ("unauthorized", rate limits) and every integration test fails at
+      # container start. Pull the Testcontainers images up front, retrying with a growing wait; Testcontainers
+      # only pulls an image that is missing, so the tests then start from these.
+      - name: Pull test container images
+        run: |
+          for image in postgis/postgis:16-3.4-alpine redis:7.2-alpine rabbitmq:3.13-management-alpine \
+                       quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z; do
+            for attempt in 1 2 3 4 5; do
+              docker pull -q "$image" && break
+              [ "$attempt" = 5 ] && { echo "::error::could not pull $image"; exit 1; }
+              echo "pull of $image failed (attempt $attempt), retrying in $((attempt * 15)) s"
+              sleep $((attempt * 15))
+            done
+          done
       - name: Start PostGIS for SchemaTests
         run: cp .env.example .env && docker compose up -d --wait postgres
       - run: dotnet test backend/Plan2Space.sln
+        env:
+          # The runner is thrown away after the job, so the reaper container (one more Docker Hub pull) is not needed.
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
 
   ai-service-tests:
     runs-on: ubuntu-latest
