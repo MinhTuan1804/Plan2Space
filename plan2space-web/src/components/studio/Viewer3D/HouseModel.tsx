@@ -1,24 +1,34 @@
 import React, { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useGeometryStore } from '../../../stores/geometryStore'
-import { Opening, Point, Wall } from '../../../services/geometryService'
+import { Opening, Point, Room, Wall } from '../../../services/geometryService'
 import { useWallGeometry } from './useWallGeometry'
 import { floorPatches, FloorKind, wallHeight } from './floorPlan'
 import { floorTexture } from './textures'
 import { FurnitureModels } from './FurnitureModels'
 import { OpeningModels } from './OpeningModels'
 import { wallEndExtensions } from './wallJoints'
+import { splitWallFacesByRoom } from './wallPaint'
 
-const WALL_PAINT = '#efe9df'
 const FLOOR_FALLBACK: Record<FloorKind, string> = { wood: '#b98a5a', tile: '#e6e2da' }
 
-function WallMesh({ wall, openings, extend }: { wall: Wall; openings: Opening[]; extend: [number, number] }) {
-  const geometry = useWallGeometry(wall, openings, extend)
-  return (
-    <mesh geometry={geometry} castShadow receiveShadow>
-      <meshStandardMaterial color={WALL_PAINT} roughness={0.9} metalness={0} />
-    </mesh>
-  )
+export const WALL_PAINT = '#efe9df'
+
+// Each long face takes the paint of the room it faces; everything else keeps the default paint.
+function WallMesh({ wall, openings, extend, rooms }: { wall: Wall; openings: Opening[]; extend: [number, number]; rooms: Room[] }) {
+  const solid = useWallGeometry(wall, openings, extend)
+  // Regrouped when the walls or the room outlines change; a new colour only swaps materials.
+  const roomShapes = JSON.stringify(rooms.map((r) => [r.id, r.points]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const { geometry, roomIds } = useMemo(() => splitWallFacesByRoom(solid, wall, rooms), [solid, wall, roomShapes])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  const colours = [WALL_PAINT, ...roomIds.map((id) => rooms.find((r) => r.id === id)?.wallColor ?? WALL_PAINT)]
+  const materials = useMemo(
+    () => colours.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, metalness: 0 })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [colours.join()])
+  useEffect(() => () => materials.forEach((m) => m.dispose()), [materials])
+  return <mesh geometry={geometry} material={materials} castShadow receiveShadow />
 }
 
 function useShape(points: Point[]) {
@@ -60,7 +70,7 @@ export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
 
   return (
     <>
-      {walls.map((wall) => <WallMesh key={wall.id} wall={wall} openings={openings} extend={joints.get(wall.id)!} />)}
+      {walls.map((wall) => <WallMesh key={wall.id} wall={wall} openings={openings} extend={joints.get(wall.id)!} rooms={rooms} />)}
       {floors.map((f, i) => <Floor key={i} points={f.points} kind={f.kind} />)}
       {showCeilings && floors.map((f, i) => <Ceiling key={i} points={f.points} height={height} />)}
       <OpeningModels />

@@ -43,6 +43,7 @@ export interface GeometryState {
   flipDoorSwing: (openingId: string) => void
   replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[]) => void
   updateRoomLabel: (roomId: string, label: string) => void
+  setRoomWallColor: (roomId: string, color: string | null) => void
   scalePlan: (factor: number) => void
   snapshotPlan: () => PlanSnapshot
   restorePlan: (snapshot: PlanSnapshot) => void
@@ -236,6 +237,12 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       markEdited()
     },
 
+    setRoomWallColor: (roomId, color) => {
+      set((state) => ({ rooms: state.rooms.map((r) => (r.id !== roomId ? r
+        : color ? { ...r, wallColor: color } : (({ wallColor, ...rest }) => rest)(r))) }))
+      markEdited()
+    },
+
     updateRoomLabel: (roomId, label) => {
       set((state) => ({ rooms: state.rooms.map((r) => (r.id === roomId ? { ...r, label } : r)) }))
       markEdited()
@@ -285,12 +292,12 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
           if (!Array.isArray(derived)) throw new Error('No rooms returned')
           const previous = rooms
           rooms = derived.map((r) => {
-            // A re-derived room keeps the type the user gave the room it replaces. Automatic "Room N" names
-            // are not carried over: a room split in two would otherwise yield two rooms of the same name.
+            // A re-derived room keeps the type and the wall paint the user gave the room it replaces. Automatic
+            // "Room N" names are not carried over: a room split in two would otherwise yield two rooms of that name.
             const probe = interiorPoint(r.points)
             const before = previous.find((old) => pointInPolygon(probe, old.points))
             const label = before && roomTypeOf(before.label) ? before.label : r.label
-            return { id: newId(), points: r.points, label, version: 0 }
+            return { id: newId(), points: r.points, label, version: 0, ...(before?.wallColor ? { wallColor: before.wallColor } : {}) }
           })
         } catch {
           // The walls still save; the previous rooms stay until a later save derives them again.
@@ -300,7 +307,7 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       try {
         const result = await saveGeometry(projectId, version, {
           walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters })),
-          rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label })),
+          rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label, wallColor: r.wallColor ?? null })),
           openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters, swingFlipped: !!o.swingFlipped })),
           furniture: furniture.map((f) => ({ id: f.id, catalogId: f.catalogId, x: f.x, y: f.y, rotationDeg: f.rotationDeg })),
         })

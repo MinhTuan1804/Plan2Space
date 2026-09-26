@@ -18,6 +18,7 @@ export interface Room {
   points: Point[]
   label: string
   version: number
+  wallColor?: string          // #RRGGBB paint of the wall faces inside this room
 }
 
 export interface Opening {
@@ -64,7 +65,7 @@ export async function saveGeometry(
   baseVersion: number,
   payload: {
     walls: { id?: string; points: Point[]; thicknessMeters: number; heightMeters: number }[]
-    rooms: { id?: string; points: Point[]; label: string }[]
+    rooms: { id?: string; points: Point[]; label: string; wallColor?: string | null }[]
     openings: { id?: string; wallId: string; type: string; position: Point; widthMeters: number; sillHeightMeters: number; swingFlipped?: boolean }[]
     furniture: { id?: string; catalogId: string; x: number; y: number; rotationDeg: number }[]
   }
