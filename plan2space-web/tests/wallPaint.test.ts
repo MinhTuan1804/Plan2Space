@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as THREE from 'three'
 import { buildWallGeometry } from '../src/components/studio/Viewer3D/buildWallGeometry'
+import { cutOpeningsIntoWall } from '../src/components/studio/Viewer3D/cutOpenings'
 import { splitWallFacesByRoom } from '../src/components/studio/Viewer3D/wallPaint'
-import { Room, Wall } from '../src/services/geometryService'
+import { Opening, Room, Wall } from '../src/services/geometryService'
 import { useGeometryStore } from '../src/stores/geometryStore'
 import * as geometryService from '../src/services/geometryService'
 
@@ -26,6 +27,13 @@ describe('wall faces painted by the room they face', () => {
     const { geometry, roomIds } = splitWallFacesByRoom(buildWallGeometry(dot), dot, [room('in', box(0, 0, 4, 3))])
     expect(roomIds).toEqual([])
     expect(geometry.getAttribute('position')).toBeUndefined()
+  })
+
+  it('a zero-length wall with a door on it: cutting the opening does not throw either', () => {
+    const dot: Wall = { ...wall, points: [{ x: 1, y: 1 }, { x: 1, y: 1 }] }
+    const door = { id: 'o', wallId: dot.id, type: 'Door', position: { x: 1, y: 1 }, widthMeters: 0.9, sillHeightMeters: 0 } as Opening
+    const cut = cutOpeningsIntoWall(buildWallGeometry(dot), dot, [door])
+    expect(() => splitWallFacesByRoom(cut, dot, [])).not.toThrow()
   })
 
   it('a wall between two rooms: each long face goes to its own room, the rest keeps the default paint', () => {

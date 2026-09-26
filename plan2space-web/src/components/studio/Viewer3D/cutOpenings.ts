@@ -36,7 +36,8 @@ export function openingCutterGeometry(wall: Wall, opening: Opening): THREE.Buffe
 
 export function cutOpeningsIntoWall(wallGeometry: THREE.BufferGeometry, wall: Wall, openings: Opening[]): THREE.BufferGeometry {
   const relevant = openings.filter((o) => o.wallId === wall.id)
-  if (relevant.length === 0) return wallGeometry
+  // A zero-length wall has no geometry to cut; CSG throws on an empty mesh.
+  if (relevant.length === 0 || !wallGeometry.getAttribute('position')) return wallGeometry
 
   let currentBrush = new Brush(wallGeometry)
   currentBrush.updateMatrixWorld()
