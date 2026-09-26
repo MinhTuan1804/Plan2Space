@@ -70,9 +70,25 @@ export function planMerge(walls: Wall[]): MergePlan | null {
   const [lower, upper] = [blocks[0], blocks[1]].sort((a, b) => a.bounds.minX - b.bounds.minX)
   return {
     lower, upper,
-    offset: { x: lower.bounds.minX - upper.bounds.minX, y: lower.bounds.minY - upper.bounds.minY },
+    offset: bestOffset(walls, lower, upper),
     sizeMismatch: Math.min(area(lower.bounds), area(upper.bounds)) < 0.5 * Math.max(area(lower.bounds), area(upper.bounds)),
   }
+}
+
+const END_MATCH_M = 0.05
+
+// Floors share their outline but not always all of it (a balcony juts out upstairs), so try lining up
+// each corner of the two outlines and keep the one that lands the most upper wall ends on lower ones.
+function bestOffset(walls: Wall[], lower: Block, upper: Block): Point {
+  const ends = (ids: string[]) => walls.filter((w) => ids.includes(w.id)).flatMap((w) => [w.points[0], w.points[w.points.length - 1]])
+  const below = ends(lower.wallIds), above = ends(upper.wallIds)
+  const [l, u] = [lower.bounds, upper.bounds]
+  const candidates: Point[] = [
+    { x: l.minX - u.minX, y: l.minY - u.minY }, { x: l.maxX - u.maxX, y: l.maxY - u.maxY },
+    { x: l.minX - u.minX, y: l.maxY - u.maxY }, { x: l.maxX - u.maxX, y: l.minY - u.minY },
+  ]
+  const score = (o: Point) => above.filter((p) => below.some((q) => Math.hypot(p.x + o.x - q.x, p.y + o.y - q.y) <= END_MATCH_M)).length
+  return candidates.reduce((best, o) => (score(o) > score(best) ? o : best))
 }
 
 export function mergeFloors(plan: PlanData, merge: MergePlan, heights: [number, number]): PlanData {

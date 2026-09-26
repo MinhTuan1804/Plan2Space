@@ -65,4 +65,15 @@ describe('mergeFloors', () => {
     expect(levelElevation(p.walls, 0)).toBe(0)
     expect(levelElevation(p.walls, 1)).toBeCloseTo(3.6)
   })
+
+  it('lines the floors up on their shared walls when the upper floor has a balcony sticking out', () => {
+    // The reference first floor has a front balcony 1.29 m proud of the ground floor's front wall.
+    const balcony = [
+      { id: 'b1', points: [{ x: 22, y: 0 }, { x: 22, y: -1.29 }], thicknessMeters: 0.11, heightMeters: 3, version: 1 },
+      { id: 'b2', points: [{ x: 22, y: -1.29 }, { x: 28, y: -1.29 }], thicknessMeters: 0.11, heightMeters: 3, version: 1 },
+      { id: 'b3', points: [{ x: 28, y: -1.29 }, { x: 28, y: 0 }], thicknessMeters: 0.11, heightMeters: 3, version: 1 },
+    ]
+    const m = planMerge([...plan().walls, ...balcony])!
+    expect(m.offset.x).toBeCloseTo(-20); expect(m.offset.y).toBeCloseTo(0)
+  })
 })
