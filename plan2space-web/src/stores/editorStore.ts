@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { Underlay } from '../services/underlayService'
+import { SectionBox } from '../lib/sectionBox'
 
 export type Tool = 'select' | 'wall' | 'opening' | 'measure' | 'furniture'
 export type Selection = { kind: 'wall' | 'opening' | 'furniture' | 'room'; id: string } | null
@@ -27,6 +28,9 @@ interface EditorState {
   level: number                 // the storey the 2D plan shows and edits
   setLevel: (level: number) => void
   setWalking: (walking: boolean) => void
+  // The 3D view's section box: null when off. A viewing aid, never saved.
+  section: SectionBox | null
+  setSection: (section: SectionBox | null) => void
   // A saved calibration whose image scale could not be sent yet; retried from the editor.
   pendingUnderlayMpp: number | null
   setPendingUnderlayMpp: (mpp: number | null) => void
@@ -58,6 +62,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   level: 0,
   setLevel: (level) => set({ level, selection: null }),
   setWalking: (walking) => set({ walking }),
+  section: null,
+  setSection: (section) => set({ section }),
   pendingUnderlayMpp: null,
   setPendingUnderlayMpp: (pendingUnderlayMpp) => set({ pendingUnderlayMpp }),
   underlayMeta: null,

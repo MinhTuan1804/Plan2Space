@@ -5,6 +5,7 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from './HouseModel'
 import { SunLight } from './SunLight'
+import { SectionClipping, SectionPanel } from './SectionPanel'
 import { SKY_LIGHT, TONE_MAPPING } from './lighting'
 import { Eye, Footprints } from 'lucide-react'
 
@@ -30,6 +31,8 @@ export function Scene() {
         </button>
       </div>
 
+      {wallCount > 0 && <SectionPanel />}
+
       <div className="absolute bottom-4 right-4 z-10 pointer-events-none flex items-center gap-2 text-[11px] font-mono text-zinc-400 bg-zinc-950/80 px-2 py-1 rounded border border-zinc-800/80">
         <span>Rotate: Left Click</span>
         <span>·</span>
@@ -45,6 +48,7 @@ export function Scene() {
       >
         <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity]} />
         <SunLight />
+        <SectionClipping />
 
         <OrbitControls
           makeDefault
