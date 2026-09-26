@@ -64,4 +64,16 @@ describe('generated stair', () => {
     expect(st.surfaceHeight({ x: lastOfFlightOne.x, y: lastOfFlightOne.y + 1.0 })).toBeNull()   // past flight one, before the landing
     expect(st.surfaceHeight({ x: top.x, y: top.y - 1.0 })).toBeNull()                            // past the top tread
   })
+
+  it('the real house: a door mid-way along the well and a way out upstairs only to the east', () => {
+    // Upstairs the well opens east into the corridor between y 5.8 and 6.8; everywhere else is wall or outside.
+    const exitOk = (from: { x: number; y: number }, to: { x: number; y: number }) =>
+      to.x > 2.8 && to.y > 5.8 && to.y < 6.8 && from.x > 1.4
+    const st = stairGeometry(box(0, 5.8, 2.8, 9.6), 3.8, { x: 2.8, y: 7 }, exitOk)
+    const top = st.treads.reduce((a, b) => (a.top > b.top ? a : b))
+    expect(top.x).toBeGreaterThan(1.4)                                  // arrives on the east side
+    expect(top.y).toBeLessThan(6.8)                                     // beside the corridor
+    const underDoor = st.surfaceHeight({ x: 2.5, y: 7 })
+    expect(underDoor === null || underDoor >= 2.3).toBe(true)          // the door is not blocked by low steps
+  })
 })

@@ -8,10 +8,9 @@ import { HouseModel } from '../Viewer3D/HouseModel'
 import { SunLight } from '../Viewer3D/SunLight'
 import { SKY_LIGHT, TONE_MAPPING } from '../Viewer3D/lighting'
 import { EYE_HEIGHT_M, MAX_STEP_S, freeSpot, furnitureBlockers, furnitureFootprints, groundAt, levelForHeight, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers, WalkLevels } from '../../../lib/walkPhysics'
-import { levelElevation, levelScene, levelsIn, storeyHeight } from '../../../lib/levels'
+import { levelElevation, levelScene, levelsIn } from '../../../lib/levels'
 import { holeRooms, stairWells } from '../Viewer3D/slabs'
-import { stairGeometry } from '../Viewer3D/stairs'
-import { wellEntry } from '../Viewer3D/StairModel'
+import { stairFor } from '../Viewer3D/StairModel'
 
 const EYE_EASE_S = 0.15
 import { pointInPolygon } from '../../../lib/planGeometry'
@@ -39,8 +38,7 @@ function Player() {
     floors: levels.map((level) => rooms.filter((r) => (r.level ?? 0) === level).map((r) => r.points)),
     stairs: levels.flatMap((level) => stairWells(rooms, level).map((well) => ({
       level,
-      plan: stairGeometry(well.points, storeyHeight(walls, level),
-                          wellEntry(well, openings.filter((o) => (o.level ?? 0) === level))),
+      plan: stairFor(well, level, walls, rooms, openings),
     }))),
   }), [levels, walls, rooms, openings])
   const ground = levelScene({ walls, rooms, openings, furniture }, 0)

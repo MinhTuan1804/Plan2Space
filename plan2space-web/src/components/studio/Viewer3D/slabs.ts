@@ -1,6 +1,7 @@
+import polygonClipping from 'polygon-clipping'
 import { Point, Room, Wall } from '../../../services/geometryService'
 import { levelOf } from '../../../lib/levels'
-import { pointInPolygon, polygonCentroid } from '../../../lib/planGeometry'
+import { pointInPolygon, polygonArea, polygonCentroid } from '../../../lib/planGeometry'
 import { isLightWellName, isStairName } from '../../../lib/roomTypes'
 
 export const SLAB_THICKNESS_M = 0.15
@@ -8,10 +9,6 @@ export const RAILING_HEIGHT_M = 1.0
 const WALL_COVER_SLACK_M = 0.05
 const RAILING_SAMPLES_PER_M = 20
 
-// Two rooms are the same shaft when each one's centre lies in the other.
-// ponytail: centre test instead of a 50 % area overlap; clip polygons if shafts ever come out oddly shaped.
-const sameShaft = (a: Room, b: Room) =>
-  pointInPolygon(polygonCentroid(a.points), b.points) && pointInPolygon(polygonCentroid(b.points), a.points)
 
 // A named room with a room of the storey above over its centre: the stair or light well rises into it.
 // The room above may be wider (a stair opening into a corridor); only the well itself is open.
@@ -30,12 +27,20 @@ export function holeRooms(rooms: Room[], level: number): Room[] {
   return [...stairWells(rooms, level - 1), ...lightWells(rooms, level - 1)]
 }
 
-// A room standing exactly over a well is the well itself: open, no floor.
-export const isShaft = (r: Room, holes: Room[]) => holes.some((h) => sameShaft(r, h))
+const MIN_PIECE_M2 = 0.05   // what clipping leaves of a room drawn exactly over a well: rounding slivers
 
-// The wells to cut out of a room's floor: those whose centre lies in it (none when the room is the well).
-export const holesIn = (r: Room, holes: Room[]): Point[][] => isShaft(r, holes) ? []
-  : holes.filter((h) => pointInPolygon(polygonCentroid(h.points), r.points)).map((h) => h.points)
+// A room's floor less every well below it: polygons as [outer ring, ...inner rings]. Clipped, not
+// triangulated with holes: a well touching the room's edge breaks three's hole triangulation.
+export function floorPieces(r: Room, holes: Room[]): Point[][][] {
+  if (holes.length === 0) return [[r.points]]
+  const ring = (ps: Point[]): [number, number][] => ps.map((p) => [p.x, p.y])
+  return polygonClipping.difference([ring(r.points)], ...holes.map((h) => [ring(h.points)]))
+    .map((poly) => poly.map((rg) => rg.map(([x, y]) => ({ x, y }))))
+    .filter(([outer]) => polygonArea(outer) >= MIN_PIECE_M2)
+}
+
+// A room standing over a well with nothing left once the well is cut out is the well itself: open.
+export const isShaft = (r: Room, holes: Room[]) => holes.length > 0 && floorPieces(r, holes).length === 0
 
 // The slab under `upperLevel`: its rooms (less the wells themselves), open over the wells below.
 export function slabOutline(rooms: Room[], upperLevel: number): { outer: Point[][]; holes: Point[][] } {
@@ -76,4 +81,20 @@ export function railingRuns(hole: Point[], walls: Wall[]): [Point, Point][] {
     }
   }
   return runs
+}
+
+function segmentsCross(a: Point, b: Point, c: Point, d: Point): boolean {
+  const side = (p: Point, q: Point, r: Point) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x))
+  return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0
+}
+
+// From the top of a stair on `level`, whether a step from `from` to `to` lands on the floor above
+// (not in a well, not outside) without passing through one of that floor's walls.
+export function upperExit(rooms: Room[], walls: Wall[], level: number): (from: Point, to: Point) => boolean {
+  const holes = holeRooms(rooms, level + 1)
+  const floors = rooms.filter((r) => levelOf(r) === level + 1).flatMap((r) => floorPieces(r, holes))
+  const upper = walls.filter((w) => levelOf(w) === level + 1)
+  return (from, to) =>
+    floors.some(([outer, ...inner]) => pointInPolygon(to, outer) && !inner.some((h) => pointInPolygon(to, h)))
+    && !upper.some((w) => w.points.slice(1).some((q, i) => segmentsCross(from, to, w.points[i], q)))
 }

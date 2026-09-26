@@ -36,20 +36,51 @@ function inscribedRect(poly: Point[]): Rect {
   return best
 }
 
-// A dog-leg stair: flight one up one side of the well from the end it is entered at, a landing across the
-// far end, flight two back down the other side, arriving at `rise` (the storey height) on the top tread.
-export function stairGeometry(well: Point[], rise: number, entry: Point | null): StairPlan {
+const HEADROOM_M = 2.3          // a door may open under a flight this high above it
+const LOW_STEP_M = 0.6          // or straight onto its first three steps
+const EXIT_REACH_M = 0.3        // how far past the top tread the way out upstairs is looked for
+
+// Whether one may walk from the top tread (`from`) to a point just past it (`to`) on the floor above.
+export type ExitCheck = (from: Point, to: Point) => boolean
+
+// A dog-leg stair: flight one up one side of the well, a landing across the far end, flight two back down
+// the other side, arriving at `rise` (the storey height) on the top tread. Of the four ways round it can
+// go, the one taken leaves the door (`entry`) clear and arrives where the floor above can be walked onto.
+export function stairGeometry(well: Point[], rise: number, entry: Point | null, exitOk?: ExitCheck): StairPlan {
   const r = inscribedRect(well)
+  const alongX = r.x1 - r.x0 >= r.y1 - r.y0
+  const lowEnd = alongX ? r.x0 : r.y0
+  const highEnd = alongX ? r.x1 : r.y1
+  const acrossLow = alongX ? r.y0 : r.x0
+  const S = alongX ? r.y1 - r.y0 : r.x1 - r.x0
+  // The default: start at the end nearest the door, up the side the door is on.
+  const fromLow = !entry || Math.abs((alongX ? entry.x : entry.y) - lowEnd) <= Math.abs((alongX ? entry.x : entry.y) - highEnd)
+  const flipT = !!entry && (alongX ? entry.y : entry.x) - acrossLow > S / 2
+  const layouts = [[fromLow, flipT], [fromLow, !flipT], [!fromLow, flipT], [!fromLow, !flipT]]
+    .map(([low, flip]) => dogLeg(r, rise, low, flip))
+  const centre = { x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2 }
+  const score = (st: Built) => {
+    let doorClear = true
+    if (entry) {
+      const d = Math.hypot(centre.x - entry.x, centre.y - entry.y) || 1
+      const h = st.plan.surfaceHeight({ x: entry.x + ((centre.x - entry.x) / d) * EXIT_REACH_M, y: entry.y + ((centre.y - entry.y) / d) * EXIT_REACH_M })
+      doorClear = h === null || h <= LOW_STEP_M || h >= HEADROOM_M
+    }
+    const exits = !exitOk || st.exits.some((to) => exitOk(st.top, to))
+    return (exits ? 2 : 0) + (doorClear ? 1 : 0)
+  }
+  return layouts.reduce((best, st) => (score(st) > score(best) ? st : best)).plan
+}
+
+interface Built { plan: StairPlan; top: Point; exits: Point[] }
+
+function dogLeg(r: Rect, rise: number, fromLow: boolean, flipT: boolean): Built {
   const alongX = r.x1 - r.x0 >= r.y1 - r.y0
   const L = alongX ? r.x1 - r.x0 : r.y1 - r.y0
   const S = alongX ? r.y1 - r.y0 : r.x1 - r.x0
-  // Start at the long-axis end nearest the entry (default: the lower end).
   const lowEnd = alongX ? r.x0 : r.y0
   const highEnd = alongX ? r.x1 : r.y1
-  const fromLow = !entry || Math.abs((alongX ? entry.x : entry.y) - lowEnd) <= Math.abs((alongX ? entry.x : entry.y) - highEnd)
-  // Flight one runs up the side of the well the entry is on.
   const acrossLow = alongX ? r.y0 : r.x0
-  const flipT = !!entry && (alongX ? entry.y : entry.x) - acrossLow > S / 2
   const toPlan = (s: number, t: number): Point => {
     const along = fromLow ? lowEnd + s : highEnd - s
     const across = acrossLow + (flipT ? S - t : t)
@@ -85,17 +116,23 @@ export function stairGeometry(well: Point[], rise: number, entry: Point | null):
     [at(L - ld, S, (a + 1) * h + HANDRAIL_HEIGHT_M), at(L - ld - b * g, S, rise + HANDRAIL_HEIGHT_M)],
   ]
 
+  const topS = L - ld - (b - 0.5) * g
   return {
-    treads, landing, handrails,
-    footprint: [toPlan(0, 0), toPlan(L, 0), toPlan(L, S), toPlan(0, S)],
-    surfaceHeight(p) {
-      const { s, t } = toLocal(p)
-      if (s < 0 || s > L || t < 0 || t > S) return null
-      if (s >= L - ld) return (a + 1) * h
-      // Only where a step is drawn: past either flight (capped goings in a long well) there is no stair.
-      if (t <= fw) { const k = Math.floor(s / g) + 1; return k <= a ? k * h : null }
-      if (t >= S - fw) { const j = Math.floor((L - ld - s) / g) + 1; return j <= b ? (a + 1 + j) * h : null }
-      return null
+    top: toPlan(topS, S - fw / 2),
+    // Off the end of the top tread, or off its outer side.
+    exits: [toPlan(topS - g / 2 - EXIT_REACH_M, S - fw / 2), toPlan(topS, S + EXIT_REACH_M)],
+    plan: {
+      treads, landing, handrails,
+      footprint: [toPlan(0, 0), toPlan(L, 0), toPlan(L, S), toPlan(0, S)],
+      surfaceHeight(p) {
+        const { s, t } = toLocal(p)
+        if (s < 0 || s > L || t < 0 || t > S) return null
+        if (s >= L - ld) return (a + 1) * h
+        // Only where a step is drawn: past either flight (capped goings in a long well) there is no stair.
+        if (t <= fw) { const k = Math.floor(s / g) + 1; return k <= a ? k * h : null }
+        if (t >= S - fw) { const j = Math.floor((L - ld - s) / g) + 1; return j <= b ? (a + 1 + j) * h : null }
+        return null
+      },
     },
   }
 }

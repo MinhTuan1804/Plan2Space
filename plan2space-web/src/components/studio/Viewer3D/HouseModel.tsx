@@ -9,8 +9,8 @@ import { FurnitureModels } from './FurnitureModels'
 import { OpeningModels } from './OpeningModels'
 import { levelElevation, levelScene, levelsIn, PlanData, storeyHeight } from '../../../lib/levels'
 import { LevelShell } from './LevelShell'
-import { holeRooms, holesIn, isShaft, stairWells } from './slabs'
-import { StairModel } from './StairModel'
+import { floorPieces, holeRooms, isShaft, stairWells } from './slabs'
+import { StairModel, stairFor } from './StairModel'
 import { wallEndExtensions } from './wallJoints'
 import { splitWallFacesByRoom } from './wallPaint'
 
@@ -84,7 +84,7 @@ export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
             <LevelModel {...scene} holes={holes} showCeilings={showCeilings && isTop} />
             <LevelShell rooms={rooms} level={level} walls={scene.walls} isTop={isTop} height={storeyHeight(walls, level)} />
             {stairWells(rooms, level).map((well) => (
-              <StairModel key={well.id} well={well} rise={storeyHeight(walls, level)} openings={scene.openings} />
+              <StairModel key={well.id} stair={stairFor(well, level, walls, rooms, openings)} rise={storeyHeight(walls, level)} />
             ))}
           </group>
         )
@@ -99,7 +99,9 @@ function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
   const floors = useMemo(() => {
     const solid = rooms.filter((r) => !isShaft(r, holes))
     if (rooms.length > 0 && solid.length === 0) return []
-    return floorPatches(solid, walls).map((f, i) => ({ ...f, holes: solid[i] ? holesIn(solid[i], holes) : [] }))
+    return floorPatches(solid, walls).flatMap((f, i) => solid[i]
+      ? floorPieces(solid[i], holes).map(([outer, ...inner]) => ({ kind: f.kind, points: outer, holes: inner }))
+      : [{ ...f, holes: [] as Point[][] }])
   }, [rooms, walls, holes])
   const joints = useMemo(() => new Map(walls.map((w) => [w.id, wallEndExtensions(w, walls)])), [walls])
   const height = wallHeight(walls)

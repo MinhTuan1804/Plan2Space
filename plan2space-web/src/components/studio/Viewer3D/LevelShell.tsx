@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { Point, Room, Wall } from '../../../services/geometryService'
-import { holeRooms, holesIn, isShaft, railingRuns, RAILING_HEIGHT_M, SLAB_THICKNESS_M } from './slabs'
+import { floorPieces, holeRooms, isShaft, railingRuns, RAILING_HEIGHT_M, SLAB_THICKNESS_M } from './slabs'
 import { isLightWellName } from '../../../lib/roomTypes'
 
 const POST_SPACING_M = 1.2
@@ -60,7 +60,7 @@ export function LevelShell({ rooms, level, walls, isTop, height }:
   const slab = rooms.filter((r) => (r.level ?? 0) === level && !isShaft(r, holes))
   return (
     <>
-      {level > 0 && slab.map((r) => <Slab key={r.id} points={r.points} holes={holesIn(r, holes)} />)}
+      {level > 0 && slab.flatMap((r) => floorPieces(r, holes).map(([outer, ...inner], i) => <Slab key={`${r.id}-${i}`} points={outer} holes={inner} />))}
       {holes.flatMap((h) => railingRuns(h.points, walls).map(([a, b], i) => <Railing key={`${h.id}-${i}`} a={a} b={b} />))}
       {isTop && holes.filter((h) => isLightWellName(h.label)).map((h) => <GlassRoof key={h.id} points={h.points} height={height} />)}
     </>
