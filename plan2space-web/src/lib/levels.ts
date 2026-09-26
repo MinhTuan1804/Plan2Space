@@ -99,3 +99,8 @@ export function levelElevation(walls: Wall[], level: number): number {
   return z
 }
 
+
+export function levelScene(plan: PlanData, level: number): PlanData {
+  const on = <T extends { level?: number }>(xs: T[]) => xs.filter((x) => levelOf(x) === level)
+  return { walls: on(plan.walls), rooms: on(plan.rooms), openings: on(plan.openings), furniture: on(plan.furniture) }
+}

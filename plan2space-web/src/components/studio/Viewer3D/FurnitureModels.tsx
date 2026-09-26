@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
-import { useGeometryStore } from '../../../stores/geometryStore'
+import { FurnitureItem } from '../../../services/geometryService'
 import { CatalogEntry, useCatalog } from '../../../services/catalogService'
 
 function Box({ entry }: { entry: CatalogEntry }) {
@@ -24,8 +24,7 @@ function Model({ url }: { url: string }) {
 }
 
 // Furniture in plan space; items whose catalog entry is gone are skipped.
-export function FurnitureModels() {
-  const furniture = useGeometryStore((s) => s.furniture)
+export function FurnitureModels({ furniture }: { furniture: FurnitureItem[] }) {
   const catalog = useCatalog()
   if (!catalog) return null
   return (

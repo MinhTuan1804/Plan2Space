@@ -1,7 +1,6 @@
 import React, { Component, ReactNode, Suspense, useMemo } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
-import { useGeometryStore } from '../../../stores/geometryStore'
 import { Opening, Room, Wall } from '../../../services/geometryService'
 import { doorSwingSign } from '../../../lib/doorSwing'
 import { CatalogDoor, useCatalog } from '../../../services/catalogService'
@@ -72,10 +71,7 @@ function OpeningModel({ opening, wall, rooms, door }: { opening: Opening; wall: 
 }
 
 // Doors (the catalog's door model, left open) and windows (a frame fitted to the opening) in plan space.
-export function OpeningModels() {
-  const walls = useGeometryStore((s) => s.walls)
-  const openings = useGeometryStore((s) => s.openings)
-  const rooms = useGeometryStore((s) => s.rooms)
+export function OpeningModels({ walls, openings, rooms }: { walls: Wall[]; openings: Opening[]; rooms: Room[] }) {
   const catalog = useCatalog()
   return (
     <>

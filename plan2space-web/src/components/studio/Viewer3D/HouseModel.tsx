@@ -7,6 +7,7 @@ import { floorPatches, FloorKind, wallHeight } from './floorPlan'
 import { floorTexture } from './textures'
 import { FurnitureModels } from './FurnitureModels'
 import { OpeningModels } from './OpeningModels'
+import { levelElevation, levelScene, levelsIn, PlanData } from '../../../lib/levels'
 import { wallEndExtensions } from './wallJoints'
 import { splitWallFacesByRoom } from './wallPaint'
 
@@ -60,10 +61,28 @@ function Ceiling({ points, height }: { points: Point[]; height: number }) {
 }
 
 // The house in plan space (x, y, height up). Callers place it inside a group rotated −90° about X.
+// Each level stands at its elevation (the storeys below it).
 export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
   const walls = useGeometryStore((s) => s.walls)
   const rooms = useGeometryStore((s) => s.rooms)
   const openings = useGeometryStore((s) => s.openings)
+  const furniture = useGeometryStore((s) => s.furniture)
+  const levels = levelsIn(walls)
+  return (
+    <>
+      {(levels.length ? levels : [0]).map((level) => {
+        const scene = levelScene({ walls, rooms, openings, furniture }, level)
+        return (
+          <group key={level} position={[0, 0, levelElevation(walls, level)]}>
+            <LevelModel {...scene} showCeilings={showCeilings} />
+          </group>
+        )
+      })}
+    </>
+  )
+}
+
+function LevelModel({ walls, rooms, openings, furniture, showCeilings }: PlanData & { showCeilings: boolean }) {
   const floors = useMemo(() => floorPatches(rooms, walls), [rooms, walls])
   const joints = useMemo(() => new Map(walls.map((w) => [w.id, wallEndExtensions(w, walls)])), [walls])
   const height = wallHeight(walls)
@@ -73,8 +92,8 @@ export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
       {walls.map((wall) => <WallMesh key={wall.id} wall={wall} openings={openings} extend={joints.get(wall.id)!} rooms={rooms} />)}
       {floors.map((f, i) => <Floor key={i} points={f.points} kind={f.kind} />)}
       {showCeilings && floors.map((f, i) => <Ceiling key={i} points={f.points} height={height} />)}
-      <OpeningModels />
-      <FurnitureModels />
+      <OpeningModels walls={walls} openings={openings} rooms={rooms} />
+      <FurnitureModels furniture={furniture} />
     </>
   )
 }
