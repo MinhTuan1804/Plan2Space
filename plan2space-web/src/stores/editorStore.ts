@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import { Underlay } from '../services/underlayService'
 import { SectionBox } from '../lib/sectionBox'
+import { Vec3 } from '../services/viewSettingsService'
+
+// A camera move the 3D view makes and then clears: plan coordinates [x, y, height].
+export interface FlyTo { position: Vec3; target: Vec3; level: number }
+export type Picked = { kind: 'furniture' | 'opening' | 'room'; id: string } | null
+
+const today = () => new Date().toISOString().slice(0, 10)
 
 export type Tool = 'select' | 'wall' | 'opening' | 'measure' | 'furniture'
 export type Selection = { kind: 'wall' | 'opening' | 'furniture' | 'room'; id: string } | null
@@ -31,6 +38,16 @@ interface EditorState {
   // The 3D view's section box: null when off. A viewing aid, never saved.
   section: SectionBox | null
   setSection: (section: SectionBox | null) => void
+  flyTo: FlyTo | null
+  setFlyTo: (flyTo: FlyTo | null) => void
+  // The sun study's day and hour (local, 5–19): viewing state, never saved.
+  sunDate: string
+  sunHour: number
+  setSun: (date: string, hour: number) => void
+  tool3d: 'select' | 'measure'
+  setTool3d: (tool: 'select' | 'measure') => void
+  picked: Picked
+  setPicked: (picked: Picked) => void
   // A saved calibration whose image scale could not be sent yet; retried from the editor.
   pendingUnderlayMpp: number | null
   setPendingUnderlayMpp: (mpp: number | null) => void
@@ -64,6 +81,15 @@ export const useEditorStore = create<EditorState>((set) => ({
   setWalking: (walking) => set({ walking }),
   section: null,
   setSection: (section) => set({ section }),
+  flyTo: null,
+  setFlyTo: (flyTo) => set({ flyTo }),
+  sunDate: today(),
+  sunHour: 14,
+  setSun: (sunDate, sunHour) => set({ sunDate, sunHour }),
+  tool3d: 'select',
+  setTool3d: (tool3d) => set({ tool3d, picked: null }),
+  picked: null,
+  setPicked: (picked) => set({ picked }),
   pendingUnderlayMpp: null,
   setPendingUnderlayMpp: (pendingUnderlayMpp) => set({ pendingUnderlayMpp }),
   underlayMeta: null,
