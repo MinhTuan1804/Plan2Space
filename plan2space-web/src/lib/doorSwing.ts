@@ -1,5 +1,6 @@
 import { Opening, Point, Room, Wall } from '../services/geometryService'
 import { pointInPolygon, polygonArea } from './planGeometry'
+import { roomTypeOf } from './roomTypes'
 
 // From this width a doorway takes two leaves, hinged on either jamb.
 export const DOUBLE_DOOR_MIN_WIDTH_M = 1.2
@@ -75,4 +76,15 @@ export function doorSwingArcs(opening: Opening, wall: Wall, sign: 1 | -1, steps 
     arc({ x: p.x - u.x * w / 2, y: p.y - u.y * w / 2 }, w / 2, u),
     arc({ x: p.x + u.x * w / 2, y: p.y + u.y * w / 2 }, w / 2, { x: -u.x, y: -u.y }),
   ]
+}
+
+// A door the user styled is what they chose; otherwise a door from a garage straight to the outside is a garage door.
+export function isGarageDoor(opening: Opening, wall: Wall, rooms: Room[]): boolean {
+  if (opening.type !== 'Door') return false
+  if (opening.doorStyle) return opening.doorStyle === 'garage'
+  const { n } = segmentAt(wall, opening.position)
+  const at = (s: number) => rooms.find((r) => pointInPolygon(
+    { x: opening.position.x + s * n.x * PROBE_M, y: opening.position.y + s * n.y * PROBE_M }, r.points))
+  const sides = [at(1), at(-1)]
+  return sides.includes(undefined) && sides.some((r) => r && roomTypeOf(r.label) === 'garage')
 }

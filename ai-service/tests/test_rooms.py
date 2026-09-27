@@ -55,3 +55,15 @@ def test_a_wall_ending_a_few_centimetres_short_of_another_still_closes_the_room(
     walls = [{"points": [[0, 0], [4, 0]]}, {"points": [[4, 0], [4, 4]]},
              {"points": [[4, 4], [0, 4]]}, {"points": [[0.1, 3.9], [0.1, 0.12]]}]
     assert len(rooms_from_walls(walls)) == 1
+
+
+def test_cross_walls_meeting_a_corridor_do_not_cut_it_in_two():
+    # Benchmark case05: the room step bridged the corridor between two walls lined up across it.
+    from pipeline.rooms import rooms_from_walls
+    w = lambda a, b: {"points": [list(a), list(b)], "thickness_m": 0.11, "height_m": 2.8}
+    walls = [w((0, 0), (8, 0)), w((8, 0), (8, 9.5)), w((8, 9.5), (0, 9.5)), w((0, 9.5), (0, 0)),
+             w((0, 4.5), (8, 4.5)), w((0, 5.7), (8, 5.7)), w((5, 0), (5, 4.5)), w((5, 5.7), (5, 9.5))]
+    widths = sorted(round(max(x for x, _ in r["points"]) - min(x for x, _ in r["points"]), 2)
+                    for r in rooms_from_walls(walls)
+                    if min(y for _, y in r["points"]) >= 4.49 and max(y for _, y in r["points"]) <= 5.71)
+    assert widths == [8.0]

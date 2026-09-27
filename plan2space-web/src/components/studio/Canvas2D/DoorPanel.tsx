@@ -5,10 +5,20 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 export function DoorPanel({ openingId }: { openingId: string }) {
   const door = useGeometryStore((s) => s.openings.find((o) => o.id === openingId && o.type === 'Door'))
   const flipDoorSwing = useGeometryStore((s) => s.flipDoorSwing)
+  const setDoorStyle = useGeometryStore((s) => s.setDoorStyle)
   if (!door) return null
   return (
     <div className="absolute right-4 top-4 z-20 w-56 rounded-lg border border-zinc-800 bg-[#121215]/95 p-3 text-xs text-zinc-200">
       <div className="mb-2 text-zinc-400">Cửa đi · {door.widthMeters.toFixed(2)} m</div>
+      <label className="mb-2 flex items-center justify-between gap-2 text-zinc-400">
+        Kiểu cửa
+        <select className="rounded bg-zinc-800 px-1 py-0.5 text-zinc-200" value={door.doorStyle ?? ''}
+                onChange={(e) => setDoorStyle(door.id, (e.target.value || null) as 'standard' | 'garage' | null)}>
+          <option value="">Tự động</option>
+          <option value="standard">Cửa thường</option>
+          <option value="garage">Cửa garage</option>
+        </select>
+      </label>
       <button className="w-full rounded bg-amber-600 px-2 py-1 text-white" onClick={() => flipDoorSwing(door.id)}>
         Đảo chiều mở cửa
       </button>

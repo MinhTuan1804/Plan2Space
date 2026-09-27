@@ -7,44 +7,118 @@ import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from '../Viewer3D/HouseModel'
 import { SunLight } from '../Viewer3D/SunLight'
 import { SKY_LIGHT, TONE_MAPPING } from '../Viewer3D/lighting'
-import { EYE_HEIGHT_M, MAX_STEP_S, freeSpot, furnitureBlockers, furnitureFootprints, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers } from '../../../lib/walkPhysics'
+import { EYE_HEIGHT_M, MAX_STEP_S, freeSpot, furnitureBlockers, furnitureFootprints, groundAt, levelForHeight, teleportTo, moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers, WalkLevels } from '../../../lib/walkPhysics'
+import { levelElevation, levelScene, levelsIn } from '../../../lib/levels'
+import { holeRooms, stairWells } from '../Viewer3D/slabs'
+import { stairFor } from '../Viewer3D/StairModel'
+import { MiniMap } from '../MiniMap'
+import { doorInSight, lightOn } from '../../../lib/interaction'
+import { Atmosphere, QualityToggle } from '../Viewer3D/Atmosphere'
+import { useSun } from '../Viewer3D/SunStudyPanel'
+
+const EYE_EASE_S = 0.15
 import { pointInPolygon } from '../../../lib/planGeometry'
 import { useCatalog } from '../../../services/catalogService'
 import { useMovementKeys } from './useMovementKeys'
 
 // Plan (x, y) at height h is world (x, h, −y): the house group is rotated −90° about X.
-function Player() {
+// The player walks on one level at a time: its walls and furniture block, and the ground underfoot
+// (floor or stair tread) sets the eye height, eased so a stair reads as steps rather than a jolt.
+export interface WalkerMark { x: number; y: number; headingDeg: number; level: number }
+
+function Player({ onMove, teleport }: { onMove: (m: WalkerMark) => void; teleport: React.MutableRefObject<{ x: number; y: number } | null> }) {
   const walls = useGeometryStore((s) => s.walls)
   const rooms = useGeometryStore((s) => s.rooms)
   const openings = useGeometryStore((s) => s.openings)
   const furniture = useGeometryStore((s) => s.furniture)
   const catalog = useCatalog()
+  const levels = useMemo(() => { const l = levelsIn(walls); return l.length ? l : [0] }, [walls])
   // Beds, sofas and tables block like walls; wall-mounted items do not.
-  const blockers = useMemo(
-    () => [...wallBlockers(walls, openings), ...furnitureBlockers(furniture, (id) => catalog?.byId[id])],
-    [walls, openings, furniture, catalog],
-  )
-  const footprints = useMemo(() => furnitureFootprints(furniture, (id) => catalog?.byId[id]), [furniture, catalog])
-  const position = useRef(settleSpawn(spawnPoint(rooms, walls), blockers))
+  const blockersByLevel = useMemo(() => new Map(levels.map((level) => {
+    const scene = levelScene({ walls, rooms, openings, furniture }, level)
+    return [level, [...wallBlockers(scene.walls, scene.openings), ...furnitureBlockers(scene.furniture, (id) => catalog?.byId[id])]]
+  })), [levels, walls, rooms, openings, furniture, catalog])
+  const world = useMemo<WalkLevels>(() => ({
+    elevations: levels.map((level) => levelElevation(walls, level)),
+    holes: levels.map((level) => holeRooms(rooms, level).map((r) => r.points)),
+    floors: levels.map((level) => rooms.filter((r) => (r.level ?? 0) === level).map((r) => r.points)),
+    stairs: levels.flatMap((level) => stairWells(rooms, level).map((well) => ({
+      level,
+      plan: stairFor(well, level, walls, rooms, openings),
+    }))),
+  }), [levels, walls, rooms, openings])
+  const ground = levelScene({ walls, rooms, openings, furniture }, 0)
+  const footprints = useMemo(() => furnitureFootprints(ground.furniture, (id) => catalog?.byId[id]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [furniture, catalog])
+  const blockers0 = blockersByLevel.get(0) ?? []
+  const position = useRef(settleSpawn(spawnPoint(ground.rooms, ground.walls), blockers0))
+  const groundZ = useRef(0)
+  const eye = useRef(EYE_HEIGHT_M)
   // The catalog arrives after the first render: a start the furniture now covers moves to a free spot
   // in the same room (auto-furnished sofas and dining sets often cover the room centre).
   useEffect(() => {
-    const room = rooms.find((r) => pointInPolygon(position.current, r.points))
-    position.current = freeSpot(position.current, blockers, footprints, room?.points)
-  }, [rooms, blockers, footprints])
+    const room = ground.rooms.find((r) => pointInPolygon(position.current, r.points))
+    position.current = freeSpot(position.current, blockers0, footprints, room?.points)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms, blockers0, footprints])
   const keys = useMovementKeys()
   const { camera } = useThree()
   const look = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(() => {
-    camera.position.set(position.current.x, EYE_HEIGHT_M, -position.current.y)
+    camera.position.set(position.current.x, eye.current, -position.current.y)
   }, [camera])
 
+  const sincePublish = useRef(0)
+  const night = !useSun().up
+  // E opens or closes the door in sight, L switches the light of the room underfoot; only while walking.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!document.pointerLockElement || e.repeat) return
+      const level = levelForHeight(groundZ.current, world.elevations)
+      const onLevel = <T extends { level?: number }>(xs: T[]) => xs.filter((x) => (x.level ?? 0) === level)
+      if (e.code === 'KeyE') {
+        camera.getWorldDirection(look)
+        const id = doorInSight({ x: position.current.x, y: position.current.y, h: eye.current - world.elevations[level] },
+                               { x: look.x, y: -look.z, h: look.y }, onLevel(openings), onLevel(walls))
+        if (id) useEditorStore.getState().toggleDoor(id)
+      } else if (e.code === 'KeyL') {
+        const room = onLevel(rooms).find((r) => pointInPolygon(position.current, r.points))
+        if (room) {
+          const { lightsOverride, toggleLight } = useEditorStore.getState()
+          toggleLight(room.id, lightOn(room.id, lightsOverride, night))
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [camera, look, world, openings, walls, rooms, night])
   useFrame((_, delta) => {
+    const dt = Math.min(delta, MAX_STEP_S)
     camera.getWorldDirection(look)
-    const move = moveVector(keys.current, { x: look.x, y: -look.z }, Math.min(delta, MAX_STEP_S))
-    if (move.x !== 0 || move.y !== 0) position.current = stepPlayer(position.current, move, blockers)
-    camera.position.set(position.current.x, EYE_HEIGHT_M, -position.current.y)
+    // A minimap click: step there only onto floor of the walker's own storey (not a well, not outside).
+    if (teleport.current) {
+      const level = levelForHeight(groundZ.current, world.elevations)
+      const landed = teleportTo(teleport.current, groundZ.current, world, rooms.filter((r) => (r.level ?? 0) === level).map((r) => r.points))
+      teleport.current = null
+      if (landed) position.current = landed
+    }
+    const move = moveVector(keys.current, { x: look.x, y: -look.z }, dt)
+    if (move.x !== 0 || move.y !== 0) {
+      const level = levelForHeight(groundZ.current, world.elevations)
+      const next = stepPlayer(position.current, move, blockersByLevel.get(level) ?? [])
+      const z = groundAt(next, groundZ.current, world)
+      if (z !== null) { position.current = next; groundZ.current = z }
+    }
+    eye.current += (groundZ.current + EYE_HEIGHT_M - eye.current) * Math.min(1, delta / EYE_EASE_S)
+    camera.position.set(position.current.x, eye.current, -position.current.y)
+    sincePublish.current += delta
+    if (sincePublish.current >= 0.1) {
+      sincePublish.current = 0
+      onMove({ x: position.current.x, y: position.current.y, level: levelForHeight(groundZ.current, world.elevations),
+               headingDeg: (Math.atan2(look.x, -look.z) * 180) / Math.PI })
+    }
   })
   return null
 }
@@ -52,6 +126,12 @@ function Player() {
 export function WalkMode() {
   const setWalking = useEditorStore((s) => s.setWalking)
   const [locked, setLocked] = useState(false)
+  const night = !useSun().up
+  const [walker, setWalker] = useState<WalkerMark | null>(null)
+  const teleport = useRef<{ x: number; y: number } | null>(null)
+  const walls = useGeometryStore((s) => s.walls)
+  const rooms = useGeometryStore((s) => s.rooms)
+  const shown = levelScene({ walls, rooms, openings: [], furniture: [] }, walker?.level ?? 0)
 
   useEffect(() => () => { if (document.pointerLockElement) document.exitPointerLock() }, [])
 
@@ -59,14 +139,15 @@ export function WalkMode() {
     <div className="fixed inset-0 z-50 bg-black">
       <Canvas shadows camera={{ fov: 70, near: 0.05, far: 200 }} gl={{ antialias: true, toneMapping: TONE_MAPPING }}>
         <color attach="background" args={['#cfe3f5']} />
-        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity]} />
+        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity * (night ? 0.25 : 0.4)]} />
         <SunLight />
+        <Atmosphere softShadows />
         <group rotation={[-Math.PI / 2, 0, 0]}>
           <HouseModel showCeilings />
         </group>
         {/* Only #walk-continue locks the pointer: without a selector drei locks on ANY click, Exit included. */}
         <PointerLockControls selector="#walk-continue" onLock={() => setLocked(true)} onUnlock={() => setLocked(false)} />
-        <Player />
+        <Player onMove={setWalker} teleport={teleport} />
       </Canvas>
 
       {locked && (
@@ -76,7 +157,7 @@ export function WalkMode() {
             <div className="absolute left-0 top-1/2 h-px w-4 -translate-y-1/2 bg-white/80" />
           </div>
           <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/50 px-3 py-1 text-xs text-white">
-            W A S D to walk · Shift to run · mouse to look · Esc to pause
+            W A S D to walk · Shift to run · mouse to look · E: mở/đóng cửa · L: đèn · Esc to pause
           </div>
         </>
       )}
@@ -87,8 +168,11 @@ export function WalkMode() {
           <div className="text-sm">Walk through your plan</div>
           <button id="walk-continue" className="rounded bg-blue-600 px-4 py-2 text-sm">Click to walk</button>
           <button onClick={() => setWalking(false)} className="text-xs text-zinc-400 hover:text-white">Exit to the editor</button>
+          <div className="text-xs text-zinc-400">Chất lượng: <QualityToggle /></div>
         </div>
       </div>
+      {/* Last, so it sits above the pause screen: click it while paused to step somewhere else. */}
+      <MiniMap walls={shown.walls} rooms={shown.rooms} marker={walker} onPick={(p) => { teleport.current = p }} />
     </div>
   )
 }

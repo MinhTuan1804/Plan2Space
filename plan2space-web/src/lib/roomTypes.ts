@@ -39,6 +39,10 @@ export function roomTypeOf(label: string): RoomType | null {
   return null
 }
 
+// Shafts through the floors: a stair well and a light well are named, not typed by the user.
+export const isStairName = (label: string) => /\bstair|\bthang\b/.test(normalise(label))
+export const isLightWellName = (label: string) => /gieng troi|light ?well/.test(normalise(label))
+
 export function labelFor(type: RoomType): string {
   return ROOM_TYPES.find((t) => t.type === type)!.label
 }

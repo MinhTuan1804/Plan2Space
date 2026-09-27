@@ -41,6 +41,13 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
       - run: pip install -r ai-service/requirements.txt --no-cache-dir
       - run: cd ai-service && pytest tests/ -v
+      # Recognition benchmark: scores the pipeline (and the web's merge/stair code) against known answers,
+      # failing when any case drops more than 2 points below benchmark/baseline.json.
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: cd plan2space-web && npm ci
+      - run: pytest benchmark/tests -q
+      - run: python benchmark/run.py
 
   frontend-tests:
     runs-on: ubuntu-latest

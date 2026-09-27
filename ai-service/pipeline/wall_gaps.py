@@ -14,6 +14,8 @@ COLLINEAR_ANGLE_DEG = 3.0
 ACROSS_TOLERANCE_M = 0.05
 # Walls shorter than this are piers or stubs (a drawn square has no long side).
 STUB_LENGTH_M = 0.5
+# A wall at more than 30 degrees to a gap runs across it.
+CROSSING_SIN = math.sin(math.radians(30))
 # How far off the wall's line the far end of a gap may sit: a wall half-thickness.
 MAX_GAP_OFFSET_M = 0.15
 
@@ -28,8 +30,12 @@ def _parallel(u: tuple[float, float], v: tuple[float, float]) -> bool:
     return abs(u[0] * v[0] + u[1] * v[1]) >= math.cos(math.radians(COLLINEAR_ANGLE_DEG))
 
 
-def find_wall_gaps(walls: list[dict]) -> list[tuple[tuple[float, float], tuple[float, float], float]]:
-    """Returns (end, other end, width) for every empty collinear gap narrow enough to be a doorway."""
+def find_wall_gaps(walls: list[dict], keep_crossing=None) -> list[tuple[tuple[float, float], tuple[float, float], float]]:
+    """Returns (end, other end, width) for every empty collinear gap narrow enough to be a doorway.
+
+    Two walls that both end on walls running across the gap (the cross walls of a corridor, meeting it
+    from either side) line up like doorway jambs but are not one: bridging them cuts the corridor in two.
+    Such a gap is kept only when keep_crossing(u, v, width) says so (a door is drawn in it)."""
     segments = [(tuple(wall["points"][i]), tuple(wall["points"][i + 1]))
                 for wall in walls for i in range(len(wall["points"]) - 1)]
 
@@ -49,6 +55,17 @@ def find_wall_gaps(walls: list[dict]) -> list[tuple[tuple[float, float], tuple[f
             if any(_distance_to_segment(point, a, b) <= ACROSS_TOLERANCE_M for a, b in segments):
                 return False
         return True
+
+    def lands_across(end, other_end) -> bool:
+        """The end meets a wall running across the gap (a T or a corner), not stopping free like a jamb."""
+        gx, gy = other_end[0] - end[0], other_end[1] - end[1]
+        glen = math.hypot(gx, gy) or 1.0
+        for a, b in segments:
+            sx, sy = b[0] - a[0], b[1] - a[1]
+            slen = math.hypot(sx, sy) or 1.0
+            if abs(gx * sy - gy * sx) / (glen * slen) > CROSSING_SIN and _distance_to_segment(end, a, b) <= ACROSS_TOLERANCE_M:
+                return True
+        return False
 
     def length(wall) -> float:
         (ax, ay), (bx, by) = wall["points"][0], wall["points"][-1]
@@ -85,15 +102,31 @@ def find_wall_gaps(walls: list[dict]) -> list[tuple[tuple[float, float], tuple[f
                         continue
                     if not is_empty(u, v, width):
                         continue
+                    if lands_across(u, v) and lands_across(v, u) and not (keep_crossing and keep_crossing(u, v, width)):
+                        continue
                     centre = (round((u[0] + v[0]) / 2, 3), round((u[1] + v[1]) / 2, 3))
                     if width < best.get(centre, (None, None, math.inf))[2]:
                         best[centre] = (u, v, width)
-    # A wall end bounds one doorway only: a stub further along would otherwise add a wider phantom gap
-    # overlapping the real one. The narrowest gap at each end wins.
-    kept, used_ends = [], set()
-    for u, v, width in sorted(best.values(), key=lambda g: g[2]):
-        if u in used_ends or v in used_ends:
+    return one_gap_per_side(list(best.values()))
+
+
+def one_gap_per_side(gaps):
+    """A wall end bounds one doorway on each side: a stub further along would otherwise add a wider phantom
+    gap overlapping the real one, so the narrowest gap at each end and side wins. A short pier's two ends meet on the wall line at one point and it stands between two
+    openings, one either side. Same side = the gaps leave the end in directions less than 90° apart."""
+    kept, used = [], {}
+    for u, v, width in sorted(gaps, key=lambda g: g[2]):
+        ends = ((u, (v[0] - u[0], v[1] - u[1])), (v, (u[0] - v[0], u[1] - v[1])))
+        if any(d[0] * e[0] + d[1] * e[1] > 0 for end, d in ends for e in used.get(end, [])):
             continue
-        used_ends.update((u, v))
+        for end, d in ends:
+            used.setdefault(end, []).append(d)
         kept.append((u, v, width))
     return kept
+
+
+def point_segment_distance(p, a, b) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length_sq = dx * dx + dy * dy
+    t = 0.0 if length_sq == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / length_sq))
+    return math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)

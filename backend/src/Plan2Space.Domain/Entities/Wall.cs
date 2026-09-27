@@ -10,5 +10,6 @@ public class Wall
     public LineString Geometry { get; set; } = default!;   // centerline, project-space meters
     public double ThicknessMeters { get; set; }
     public double HeightMeters { get; set; }
+    public int Level { get; set; }                     // storey: 0 = ground floor
     public uint Version { get; set; } = 1;                 // optimistic concurrency token
 }

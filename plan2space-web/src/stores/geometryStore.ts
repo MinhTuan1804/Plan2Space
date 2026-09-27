@@ -3,7 +3,9 @@ import { deriveRooms, fetchGeometry, saveGeometry, FurnitureItem, GeometryDto, W
 import {
   alongClamped, DEFAULT_WALL_HEIGHT_M, DEFAULT_WALL_THICKNESS_M, distanceAlong, interiorPoint, newId, pointInPolygon,
 } from '../lib/planGeometry'
+import { levelOf, levelsIn, mergeFloors, planMerge } from '../lib/levels'
 import { roomTypeOf } from '../lib/roomTypes'
+import { useEditorStore } from './editorStore'
 
 // What a calibration puts back if its save fails: the plan and whether it had unsaved edits.
 export interface PlanSnapshot {
@@ -31,7 +33,7 @@ export interface GeometryState {
   applyAiResult: (dto: GeometryDto) => void
   updateWall: (wallId: string, points: Point[]) => void
   addOpening: (opening: Opening) => void
-  addWall: (points: Point[]) => string
+  addWall: (points: Point[], level?: number) => string
   deleteWall: (wallId: string) => void
   moveWallPoint: (wallId: string, index: number, point: Point) => void
   updateOpening: (openingId: string, patch: Partial<Pick<Opening, 'position' | 'widthMeters' | 'type'>>) => void
@@ -41,9 +43,12 @@ export interface GeometryState {
   rotateFurniture: (id: string, deltaDeg: number) => void
   deleteFurniture: (id: string) => void
   flipDoorSwing: (openingId: string) => void
-  replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[]) => void
+  setDoorStyle: (openingId: string, style: Opening['doorStyle']) => void
+  replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[], level?: number) => void
   updateRoomLabel: (roomId: string, label: string) => void
   setRoomWallColor: (roomId: string, color: string | null) => void
+  setRoomFloorMaterial: (roomId: string, material: string | null) => void
+  mergeLevels: (heights: [number, number], swap?: boolean) => Promise<string | null>
   scalePlan: (factor: number) => void
   snapshotPlan: () => PlanSnapshot
   restorePlan: (snapshot: PlanSnapshot) => void
@@ -127,6 +132,7 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
 
     loadFromServer: async (projectId) => {
       const dto = await fetchGeometry(projectId)
+      useEditorStore.getState().setLevel(0)          // another plan: start on its ground floor
       const version = dto.version ?? [...dto.walls, ...dto.rooms, ...dto.openings].reduce((m, e) => Math.max(m, e.version || 0), 0)
       const draft = readDraft(projectId)
       if (draft && draft.version === version) {
@@ -165,10 +171,10 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       markEdited()
     },
 
-    addWall: (points) => {
+    addWall: (points, level = 0) => {
       const id = newId()
       set((state) => ({
-        walls: [...state.walls, { id, points, thicknessMeters: DEFAULT_WALL_THICKNESS_M, heightMeters: DEFAULT_WALL_HEIGHT_M, version: 0 }],
+        walls: [...state.walls, { id, points, thicknessMeters: DEFAULT_WALL_THICKNESS_M, heightMeters: DEFAULT_WALL_HEIGHT_M, version: 0, level }],
         wallsEdited: true,
       }))
       markEdited()
@@ -213,6 +219,11 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       markEdited()
     },
 
+    setDoorStyle: (openingId, style) => {
+      set((state) => ({ openings: state.openings.map((o) => (o.id === openingId ? { ...o, doorStyle: style } : o)) }))
+      markEdited()
+    },
+
     moveFurniture: (id, x, y) => {
       set((state) => ({ furniture: state.furniture.map((f) => (f.id === id ? { ...f, x, y } : f)) }))
       markEdited()
@@ -229,11 +240,39 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       markEdited()
     },
 
-    replaceFurnitureInRoom: (room, items) => {
+    replaceFurnitureInRoom: (room, items, level = 0) => {
+      // Only this level's furniture stands in the room; the same outline upstairs or below is another room.
       set((state) => ({ furniture: [
-        ...state.furniture.filter((f) => !pointInPolygon({ x: f.x, y: f.y }, room)),
+        ...state.furniture.filter((f) => levelOf(f) !== level || !pointInPolygon({ x: f.x, y: f.y }, room)),
         ...items.map((i) => ({ ...i, id: newId() })),
       ] }))
+      markEdited()
+    },
+
+    mergeLevels: async (heights, swap = false) => {
+      const { projectId, walls, rooms, openings, furniture } = get()
+      const found = planMerge(walls)
+      if (!projectId || !found) return 'There are no two floors to merge.'
+      const merge = swap ? { ...found, lower: found.upper, upper: found.lower, offset: { x: -found.offset.x, y: -found.offset.y } } : found
+      const before = get().snapshotPlan()
+      // Rooms move with their floor, so they are not re-derived (wallsEdited stays as it was).
+      set(mergeFloors({ walls, rooms, openings, furniture }, merge, heights))
+      markEdited()
+      try {
+        await get().saveToServer(projectId)
+      } catch (err: any) {
+        get().restorePlan(before)
+        return err?.response?.data?.message || 'The merged plan could not be saved, so nothing was changed. Try again.'
+      }
+      if (get().saveConflict) {
+        get().restorePlan(before)
+        return 'The plan changed elsewhere, so nothing was changed. Reload it, then merge again.'
+      }
+      return null
+    },
+
+    setRoomFloorMaterial: (roomId, material) => {
+      set((state) => ({ rooms: state.rooms.map((r) => (r.id === roomId ? { ...r, floorMaterial: material } : r)) }))
       markEdited()
     },
 
@@ -288,17 +327,23 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       let roomsRefreshFailed = false
       if (wallsEdited) {
         try {
-          const derived = await deriveRooms(walls)
-          if (!Array.isArray(derived)) throw new Error('No rooms returned')
-          const previous = rooms
-          rooms = derived.map((r) => {
+          // Each level's walls enclose that level's rooms; deriving them together would merge the floors.
+          const previousRooms = rooms
+          const levels = levelsIn(walls)
+          const perLevel = await Promise.all((levels.length ? levels : [0]).map(async (level) => {
+            const derived = await deriveRooms(walls.filter((w) => levelOf(w) === level))
+            if (!Array.isArray(derived)) throw new Error('No rooms returned')
+            return { level, derived, previous: previousRooms.filter((r) => levelOf(r) === level) }
+          }))
+          rooms = perLevel.flatMap(({ level, derived, previous }) => derived.map((r) => {
             // A re-derived room keeps the type and the wall paint the user gave the room it replaces. Automatic
             // "Room N" names are not carried over: a room split in two would otherwise yield two rooms of that name.
             const probe = interiorPoint(r.points)
             const before = previous.find((old) => pointInPolygon(probe, old.points))
             const label = before && roomTypeOf(before.label) ? before.label : r.label
-            return { id: newId(), points: r.points, label, version: 0, ...(before?.wallColor ? { wallColor: before.wallColor } : {}) }
-          })
+            return { id: newId(), points: r.points, label, version: 0, level, ...(before?.wallColor ? { wallColor: before.wallColor } : {}),
+              ...(before?.floorMaterial ? { floorMaterial: before.floorMaterial } : {}) }
+          }))
         } catch {
           // The walls still save; the previous rooms stay until a later save derives them again.
           roomsRefreshFailed = true
@@ -306,10 +351,10 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       }
       try {
         const result = await saveGeometry(projectId, version, {
-          walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters })),
-          rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label, wallColor: r.wallColor ?? null })),
-          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters, swingFlipped: !!o.swingFlipped })),
-          furniture: furniture.map((f) => ({ id: f.id, catalogId: f.catalogId, x: f.x, y: f.y, rotationDeg: f.rotationDeg })),
+          walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters, level: w.level ?? 0 })),
+          rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label, wallColor: r.wallColor ?? null, level: r.level ?? 0, floorMaterial: r.floorMaterial ?? null })),
+          openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters, swingFlipped: !!o.swingFlipped, level: o.level ?? 0, doorStyle: o.doorStyle ?? null })),
+          furniture: furniture.map((f) => ({ id: f.id, catalogId: f.catalogId, x: f.x, y: f.y, rotationDeg: f.rotationDeg, level: f.level ?? 0 })),
         })
         if (editSeq === seq) {
           clearDraft(projectId)

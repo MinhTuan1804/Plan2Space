@@ -27,6 +27,16 @@ function paintTile(ctx: CanvasRenderingContext2D) {
   }
 }
 
+function paintPebble(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = '#8f8a80'
+  ctx.fillRect(0, 0, SIZE, SIZE)
+  for (let i = 0; i < 260; i++) {                            // deterministic scatter of small stones
+    const x = (i * 97) % SIZE, y = (i * 61 + (i >> 3) * 13) % SIZE, r = 3 + ((i * 7) % 6)
+    ctx.fillStyle = ['#d8d3c8', '#b9b2a4', '#a39c8e', '#cfc8ba'][i % 4]
+    ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.75, i, 0, Math.PI * 2); ctx.fill()
+  }
+}
+
 function context2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   try {
     return canvas.getContext('2d')
@@ -43,6 +53,7 @@ export function floorTexture(kind: FloorKind): THREE.Texture | null {
   if (canvas && ctx) {
     canvas.width = canvas.height = SIZE
     if (kind === 'wood') paintWood(ctx)
+    else if (kind === 'pebble') paintPebble(ctx)
     else paintTile(ctx)
     texture = new THREE.CanvasTexture(canvas)
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping

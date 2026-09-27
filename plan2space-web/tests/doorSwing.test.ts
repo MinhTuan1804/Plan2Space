@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { doorSwingSign, doorSwingArcs } from '../src/lib/doorSwing'
+import { doorSwingSign, doorSwingArcs, isGarageDoor } from '../src/lib/doorSwing'
 import { pointInPolygon } from '../src/lib/planGeometry'
 import { Opening, Room, Wall } from '../src/services/geometryService'
 
@@ -68,5 +68,21 @@ describe('door swing arcs on the 2D plan', () => {
     const arcs = doorSwingArcs(door(4.6, 1.5, 1.2, front), front, 1)
     expect(arcs).toHaveLength(2)
     for (const a of arcs) expect(Math.hypot(a.points[0].x - a.hinge.x, a.points[0].y - a.hinge.y)).toBeCloseTo(0.6)
+  })
+})
+
+describe('garage doors', () => {
+  const garage: Room[] = [{ id: 'g', label: 'GARAGE', points: box(0, 0, 3.4, 5.8), version: 1 },
+    { id: 'l', label: 'LIVING ROOM', points: box(3.4, 0, 10, 5.8), version: 1 }]
+  const street = wall('ws', [0, 0], [10, 0])
+  const inner = wall('wi', [3.4, 0], [3.4, 5.8])
+  it('a door from a garage to the outside is a garage door, unless the user chose otherwise', () => {
+    expect(isGarageDoor(door(1.7, 0, 2.6, street), street, garage)).toBe(true)
+    expect(isGarageDoor({ ...door(1.7, 0, 2.6, street), doorStyle: 'standard' }, street, garage)).toBe(false)
+  })
+  it('a door from the garage into the house, or any other door, is a standard one unless chosen', () => {
+    expect(isGarageDoor(door(3.4, 3, 0.9, inner), inner, garage)).toBe(false)
+    expect(isGarageDoor(door(6, 0, 1, street), street, garage)).toBe(false)
+    expect(isGarageDoor({ ...door(6, 0, 1, street), doorStyle: 'garage' }, street, garage)).toBe(true)
   })
 })

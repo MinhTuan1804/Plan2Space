@@ -29,6 +29,12 @@ describe('multi-segment walls', () => {
     expect(s.y).toBeCloseTo(0.9, 3)   // along the vertical leg: door width
   })
 
+  it('cuts a garage door taller than a standard door', () => {
+    const door: Opening = { id: 'o', wallId: 'L', type: 'Door', position: { x: 2, y: 0 }, widthMeters: 2.6, sillHeightMeters: 0, version: 1 }
+    expect(size(openingCutterGeometry(lWall, door)).z).toBeCloseTo(2.1, 3)
+    expect(size(openingCutterGeometry(lWall, door, true)).z).toBeCloseTo(2.4, 3)
+  })
+
   it('cuts an opening that sits on a later segment', () => {
     const door: Opening = { id: 'o', wallId: 'L', type: 'Door', position: { x: 5, y: 2 }, widthMeters: 0.9, sillHeightMeters: 0, version: 1 }
     const solid = buildWallGeometry(lWall)

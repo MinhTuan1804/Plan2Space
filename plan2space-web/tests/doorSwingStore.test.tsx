@@ -36,3 +36,18 @@ describe('the door panel', () => {
     expect(useGeometryStore.getState().openings[0].swingFlipped).toBe(true)
   })
 })
+
+describe('the door style', () => {
+  it('is chosen in the door panel and saved', async () => {
+    const { render, screen, fireEvent, cleanup } = await import('@testing-library/react')
+    cleanup()
+    const { DoorPanel } = await import('../src/components/studio/Canvas2D/DoorPanel')
+    render(<DoorPanel openingId="d" />)
+    fireEvent.change(screen.getByLabelText('Kiểu cửa'), { target: { value: 'garage' } })
+    expect(useGeometryStore.getState().openings[0].doorStyle).toBe('garage')
+    await useGeometryStore.getState().saveToServer('p')
+    expect(vi.mocked(geometryService.saveGeometry).mock.lastCall![2].openings[0].doorStyle).toBe('garage')
+    fireEvent.change(screen.getByLabelText('Kiểu cửa'), { target: { value: '' } })
+    expect(useGeometryStore.getState().openings[0].doorStyle).toBeNull()
+  })
+})

@@ -4,7 +4,8 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { Opening, Wall } from '../../../services/geometryService'
 import { PIXELS_PER_METER, toScreen } from './canvasTransform'
-import { doorSwingArcs, doorSwingSign } from '../../../lib/doorSwing'
+import { doorSwingArcs, doorSwingSign, isGarageDoor } from '../../../lib/doorSwing'
+import { levelOf } from '../../../lib/levels'
 
 const SYMBOL_DEPTH_PX = 8
 
@@ -29,9 +30,10 @@ function screenAngleDeg(opening: Opening, walls: Wall[]): number {
 }
 
 export function OpeningLayer() {
-  const openings = useGeometryStore((s) => s.openings)
-  const walls = useGeometryStore((s) => s.walls)
-  const rooms = useGeometryStore((s) => s.rooms)
+  const level = useEditorStore((s) => s.level)
+  const openings = useGeometryStore((s) => s.openings).filter((o) => levelOf(o) === level)
+  const walls = useGeometryStore((s) => s.walls).filter((w) => levelOf(w) === level)
+  const rooms = useGeometryStore((s) => s.rooms).filter((r) => levelOf(r) === level)
   const tool = useEditorStore((s) => s.tool)
   const selection = useEditorStore((s) => s.selection)
   const select = useEditorStore((s) => s.select)
@@ -41,7 +43,8 @@ export function OpeningLayer() {
       {/* Door swings: the leaf and the quarter circle it sweeps, on the side it opens to. */}
       {openings.filter((o) => o.type === 'Door').flatMap((o) => {
         const wall = walls.find((w) => w.id === o.wallId)
-        if (!wall) return []
+        // A roller garage door does not swing.
+        if (!wall || isGarageDoor(o, wall, rooms)) return []
         return doorSwingArcs(o, wall, doorSwingSign(o, wall, rooms)).map((arc, i) => {
           const hinge = toScreen(arc.hinge)
           const pts = arc.points.flatMap((p) => { const s = toScreen(p); return [s.x, s.y] })

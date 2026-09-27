@@ -445,5 +445,12 @@
     "hingeX": -0.4428668040782213,
     "hingeZ": 0.08489120413556218,
     "attribution": ""
+  },
+  "garageDoor": {
+    "file": "/furniture/garage_door.glb",
+    "widthM": 4.88,
+    "heightM": 2.44,
+    "depthM": 0.46,
+    "attribution": ""
   }
 }

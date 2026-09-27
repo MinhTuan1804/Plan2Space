@@ -38,16 +38,16 @@ public class CopilotControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
     }
 
     // One 5m wall along y=0 with a door at x=2, plus a 4x4 room above it (fresh ids per project).
-    private static async Task SeedAsync(HttpClient client, Guid projectId, bool doorSwingFlipped = false)
+    private static async Task SeedAsync(HttpClient client, Guid projectId, bool doorSwingFlipped = false, int level = 0)
     {
         var wallId = Guid.NewGuid();
         var roomId = Guid.NewGuid();
         var res = await client.PutAsJsonAsync($"/api/projects/{projectId}/geometry", new
         {
             baseVersion = 0,
-            walls = new[] { new { id = wallId, points = new[] { new { x = 0.0, y = 0.0 }, new { x = 5.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 2.8 } },
-            rooms = new[] { new { id = roomId, label = "Kitchen", wallColor = "#CFE3D4", points = new[] { new { x = 0.0, y = 1.0 }, new { x = 4.0, y = 1.0 }, new { x = 4.0, y = 5.0 }, new { x = 0.0, y = 5.0 }, new { x = 0.0, y = 1.0 } } } },
-            openings = new[] { new { wallId = wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 0.9, sillHeightMeters = 0.0, swingFlipped = doorSwingFlipped } }
+            walls = new[] { new { id = wallId, points = new[] { new { x = 0.0, y = 0.0 }, new { x = 5.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 2.8, level } },
+            rooms = new[] { new { id = roomId, label = "Kitchen", wallColor = "#CFE3D4", level, points = new[] { new { x = 0.0, y = 1.0 }, new { x = 4.0, y = 1.0 }, new { x = 4.0, y = 5.0 }, new { x = 0.0, y = 5.0 }, new { x = 0.0, y = 1.0 } } } },
+            openings = new[] { new { wallId = wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 0.9, sillHeightMeters = 0.0, swingFlipped = doorSwingFlipped, level } }
         });
         res.EnsureSuccessStatusCode();
     }
@@ -210,5 +210,21 @@ public class CopilotControllerTests : IClassFixture<Plan2SpaceWebApplicationFact
 
         var room = (await GeometryAsync(client, projectId)).GetProperty("rooms")[0];
         Assert.Equal("#CFE3D4", room.GetProperty("wallColor").GetString());
+    }
+
+    // The co-pilot rebuilds the lists from the current plan: every element keeps its level.
+    [Fact]
+    public async Task ACopilotEdit_KeepsLevels()
+    {
+        var (client, projectId) = await ClientWithIntentAsync("copilot-level@plan2space.dev",
+            g => Intent("add_opening", new { wall_id = g.Walls[0].Id.ToString(), type = "window", offset_m = 4.0, width_m = 1.2 }));
+        await SeedAsync(client, projectId, level: 1);
+
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, projectId, "add a window")).StatusCode);
+
+        var g = await GeometryAsync(client, projectId);
+        Assert.Equal(1, g.GetProperty("walls")[0].GetProperty("level").GetInt32());
+        Assert.Equal(1, g.GetProperty("rooms")[0].GetProperty("level").GetInt32());
+        Assert.All(g.GetProperty("openings").EnumerateArray(), o => Assert.Equal(1, o.GetProperty("level").GetInt32()));
     }
 }

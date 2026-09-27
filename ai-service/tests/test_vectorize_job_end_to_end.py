@@ -77,7 +77,7 @@ def test_dxf_walls_are_healed_within_the_drawing_tolerance():
     celery_app.conf.task_always_eager = True
     with patch("workers.tasks.download_from_minio", return_value="tests/fixtures/sample_house_plan.dxf"), \
          patch("workers.tasks.report_progress"), patch("workers.tasks.report_final_state"), \
-         patch("workers.tasks.heal_wall_topology", side_effect=lambda walls, snap_tolerance_m: walls) as heal, \
+         patch("pipeline.dxf_job.heal_wall_topology", side_effect=lambda walls, snap_tolerance_m: walls) as heal, \
          patch("workers.tasks.push_geometry_to_api"):
         vectorize_job.delay(job_id="j", project_id="p", file_object_key="k.dxf").get()
     assert heal.call_args.kwargs["snap_tolerance_m"] <= 0.005

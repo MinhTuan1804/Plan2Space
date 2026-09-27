@@ -3,6 +3,8 @@ import { Point, Wall } from '../../../services/geometryService'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { nearestOnWalls, wallFromDrag } from '../../../lib/planGeometry'
 import { snapPoint } from './SnapEngine'
+import { levelOf } from '../../../lib/levels'
+import { useEditorStore } from '../../../stores/editorStore'
 
 // Loose enough for a mouse: a wall drawn near another wall's end joins it, so rooms can close.
 export const WALL_SNAP_M = 0.2
@@ -21,7 +23,7 @@ export function useWallTool() {
   const [end, setEnd] = useState<Point | null>(null)
   const addWall = useGeometryStore((s) => s.addWall)
 
-  const snap = (p: Point) => snapToWalls(p, useGeometryStore.getState().walls, '')
+  const snap = (p: Point) => snapToWalls(p, useGeometryStore.getState().walls.filter((w) => levelOf(w) === useEditorStore.getState().level), '')
   const cancel = () => { setStart(null); setEnd(null) }
 
   return {
@@ -37,7 +39,7 @@ export function useWallTool() {
     onPointerUp(p: Point) {
       if (!start) return
       const points = wallFromDrag(start, snap(p))
-      if (points) addWall(points)
+      if (points) addWall(points, useEditorStore.getState().level)
       cancel()
     },
     cancel,

@@ -1,5 +1,6 @@
 import { FurnitureItem, Opening, Point, Room, Wall } from '../services/geometryService'
 import { interiorPoint, pointInPolygon, polygonArea } from './planGeometry'
+import type { StairPlan } from '../components/studio/Viewer3D/stairs'
 
 export const WALK_SPEED_MS = 1.4
 export const RUN_SPEED_MS = 3
@@ -172,4 +173,52 @@ export function freeSpot(start: Point, blockers: Blocker[], footprints: Point[][
     }
   }
   return settleSpawn(start, blockers)
+}
+
+// ---- Several storeys: what is underfoot ----
+
+// Tallest change of ground one move may make: a stair riser, never a fall into a stair or light well.
+export const MAX_STEP_M = 0.4
+const LEVEL_SNAP_M = 0.5
+
+export interface WalkLevels {
+  elevations: number[]                              // floor height of each level
+  holes: Point[][][]                                // per level: openings in its floor (stair and light wells)
+  floors?: Point[][][]                              // per level above the ground: where its slab is (its rooms)
+  stairs: { level: number; plan: StairPlan }[]      // each stair rises from its level to the next
+}
+
+// The ground under `p` nearest the player's current ground: a stair tread, or a floor that is not open
+// there (and not replaced by a stair). Null when every surface is more than a step away: the move is refused.
+export function groundAt(p: Point, current: number, w: WalkLevels): number | null {
+  const candidates: number[] = []
+  for (const s of w.stairs) {
+    const h = s.plan.surfaceHeight(p)
+    if (h !== null) candidates.push(w.elevations[s.level] + h)
+  }
+  w.elevations.forEach((z, level) => {
+    const onStair = w.stairs.some((s) => s.level === level && s.plan.surfaceHeight(p) !== null)
+    const open = (w.holes[level] ?? []).some((hole) => pointInPolygon(p, hole))
+    // Above the ground a floor exists only on the slab: past its edge there is air.
+    const onSlab = level === 0 || !w.floors || (w.floors[level] ?? []).some((f) => pointInPolygon(p, f))
+    if (!onStair && !open && onSlab) candidates.push(z)
+  })
+  let best: number | null = null
+  for (const c of candidates) if (best === null || Math.abs(c - current) < Math.abs(best - current)) best = c
+  return best !== null && Math.abs(best - current) <= MAX_STEP_M ? best : null
+}
+
+// The level whose walls and furniture the player meets at this ground height.
+export function levelForHeight(z: number, elevations: number[]): number {
+  let level = 0
+  elevations.forEach((e, l) => { if (e <= z + LEVEL_SNAP_M) level = l })
+  return level
+}
+
+// A minimap click in walk mode: the point, when it is floor of the walker's own storey (inside one of its
+// rooms, not over a stair or light well); otherwise null and the walker stays put.
+export function teleportTo(to: Point, groundZ: number, w: WalkLevels, levelRooms: Point[][]): Point | null {
+  if (!levelRooms.some((r) => pointInPolygon(to, r))) return null
+  const z = groundAt(to, groundZ, w)
+  return z !== null && Math.abs(z - groundZ) < 0.01 ? { ...to } : null
 }

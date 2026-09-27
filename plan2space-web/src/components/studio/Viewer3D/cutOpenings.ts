@@ -1,11 +1,13 @@
 import * as THREE from 'three'
 import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg'
-import { Wall, Opening, Point } from '../../../services/geometryService'
+import { Wall, Opening, Point, Room } from '../../../services/geometryService'
+import { isGarageDoor } from '../../../lib/doorSwing'
 
 const evaluator = new Evaluator()
 
 // Standard opening heights, metres: the cut, the door model and the window frame all use them.
 export const DOOR_HEIGHT_M = 2.1
+export const GARAGE_DOOR_HEIGHT_M = 2.4
 export const WINDOW_HEIGHT_M = 1.2
 
 // Direction of the wall segment closest to the opening (a polyline wall has several).
@@ -25,16 +27,16 @@ export function segmentAngleAt(wall: Wall, p: Point): number {
   return best.angle
 }
 
-export function openingCutterGeometry(wall: Wall, opening: Opening): THREE.BufferGeometry {
+export function openingCutterGeometry(wall: Wall, opening: Opening, garage = false): THREE.BufferGeometry {
   const angle = segmentAngleAt(wall, opening.position)
-  const height = opening.type === 'Door' ? DOOR_HEIGHT_M : WINDOW_HEIGHT_M
+  const height = garage ? GARAGE_DOOR_HEIGHT_M : opening.type === 'Door' ? DOOR_HEIGHT_M : WINDOW_HEIGHT_M
   const geometry = new THREE.BoxGeometry(opening.widthMeters, wall.thicknessMeters * 2, height)
   geometry.rotateZ(angle)
   geometry.translate(opening.position.x, opening.position.y, opening.sillHeightMeters + height / 2)
   return geometry
 }
 
-export function cutOpeningsIntoWall(wallGeometry: THREE.BufferGeometry, wall: Wall, openings: Opening[]): THREE.BufferGeometry {
+export function cutOpeningsIntoWall(wallGeometry: THREE.BufferGeometry, wall: Wall, openings: Opening[], rooms: Room[] = []): THREE.BufferGeometry {
   const relevant = openings.filter((o) => o.wallId === wall.id)
   // A zero-length wall has no geometry to cut; CSG throws on an empty mesh.
   if (relevant.length === 0 || !wallGeometry.getAttribute('position')) return wallGeometry
@@ -43,7 +45,7 @@ export function cutOpeningsIntoWall(wallGeometry: THREE.BufferGeometry, wall: Wa
   currentBrush.updateMatrixWorld()
 
   for (const opening of relevant) {
-    const cutterBrush = new Brush(openingCutterGeometry(wall, opening))
+    const cutterBrush = new Brush(openingCutterGeometry(wall, opening, isGarageDoor(opening, wall, rooms)))
     cutterBrush.updateMatrixWorld()
     const result = evaluator.evaluate(currentBrush, cutterBrush, SUBTRACTION)
     cutterBrush.geometry.dispose()

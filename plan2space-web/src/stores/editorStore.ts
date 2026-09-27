@@ -1,5 +1,14 @@
 import { create } from 'zustand'
 import { Underlay } from '../services/underlayService'
+import { SectionBox } from '../lib/sectionBox'
+import { Vec3 } from '../services/viewSettingsService'
+import { loadQuality, Quality, saveQuality } from '../lib/quality'
+
+// A camera move the 3D view makes and then clears: plan coordinates [x, y, height].
+export interface FlyTo { position: Vec3; target: Vec3; level: number }
+export type Picked = { kind: 'furniture' | 'opening' | 'room'; id: string } | null
+
+const today = () => new Date().toISOString().slice(0, 10)
 
 export type Tool = 'select' | 'wall' | 'opening' | 'measure' | 'furniture'
 export type Selection = { kind: 'wall' | 'opening' | 'furniture' | 'room'; id: string } | null
@@ -24,7 +33,29 @@ interface EditorState {
   bumpUnderlay: () => void
   // The full-screen walk-through is open; it owns the keyboard.
   walking: boolean
+  level: number                 // the storey the 2D plan shows and edits
+  setLevel: (level: number) => void
   setWalking: (walking: boolean) => void
+  // The 3D view's section box: null when off. A viewing aid, never saved.
+  section: SectionBox | null
+  setSection: (section: SectionBox | null) => void
+  flyTo: FlyTo | null
+  setFlyTo: (flyTo: FlyTo | null) => void
+  // The sun study's day and hour (local, 5–19): viewing state, never saved.
+  sunDate: string
+  sunHour: number
+  setSun: (date: string, hour: number) => void
+  tool3d: 'select' | 'measure'
+  setTool3d: (tool: 'select' | 'measure') => void
+  picked: Picked
+  setPicked: (picked: Picked) => void
+  quality: Quality
+  setQuality: (quality: Quality) => void
+  // Doors opened and lights switched while looking round: viewing state, never saved.
+  openDoors: Set<string>
+  toggleDoor: (openingId: string) => void
+  lightsOverride: Map<string, boolean>
+  toggleLight: (roomId: string, isOn: boolean) => void
   // A saved calibration whose image scale could not be sent yet; retried from the editor.
   pendingUnderlayMpp: number | null
   setPendingUnderlayMpp: (mpp: number | null) => void
@@ -53,7 +84,30 @@ export const useEditorStore = create<EditorState>((set) => ({
   underlayRevision: 0,
   bumpUnderlay: () => set((s) => ({ underlayRevision: s.underlayRevision + 1 })),
   walking: false,
+  level: 0,
+  setLevel: (level) => set({ level, selection: null }),
   setWalking: (walking) => set({ walking }),
+  section: null,
+  setSection: (section) => set({ section }),
+  flyTo: null,
+  setFlyTo: (flyTo) => set({ flyTo }),
+  sunDate: today(),
+  sunHour: 14,
+  setSun: (sunDate, sunHour) => set({ sunDate, sunHour }),
+  tool3d: 'select',
+  setTool3d: (tool3d) => set({ tool3d, picked: null }),
+  picked: null,
+  setPicked: (picked) => set({ picked }),
+  quality: loadQuality(),
+  setQuality: (quality) => { saveQuality(quality); set({ quality }) },
+  openDoors: new Set(),
+  toggleDoor: (id) => set((s) => {
+    const openDoors = new Set(s.openDoors)
+    if (!openDoors.delete(id)) openDoors.add(id)
+    return { openDoors }
+  }),
+  lightsOverride: new Map(),
+  toggleLight: (id, isOn) => set((s) => ({ lightsOverride: new Map(s.lightsOverride).set(id, !isOn) })),
   pendingUnderlayMpp: null,
   setPendingUnderlayMpp: (pendingUnderlayMpp) => set({ pendingUnderlayMpp }),
   underlayMeta: null,

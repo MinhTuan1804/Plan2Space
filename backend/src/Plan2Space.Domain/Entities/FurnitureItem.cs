@@ -11,5 +11,6 @@ public class FurnitureItem
     public double X { get; set; }
     public double Y { get; set; }
     public double RotationDeg { get; set; }
+    public int Level { get; set; }                     // storey: 0 = ground floor
     public uint Version { get; set; } = 1;
 }

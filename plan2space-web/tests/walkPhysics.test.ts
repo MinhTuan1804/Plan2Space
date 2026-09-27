@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers, PLAYER_RADIUS_M, MAX_STEP_S } from '../src/lib/walkPhysics'
+import { moveVector, settleSpawn, spawnPoint, stepPlayer, wallBlockers, PLAYER_RADIUS_M, MAX_STEP_S, teleportTo, WalkLevels } from '../src/lib/walkPhysics'
 import { pointInPolygon } from '../src/lib/planGeometry'
 import { Opening, Room, Wall } from '../src/services/geometryService'
 
@@ -85,5 +85,21 @@ describe('spawn', () => {
     const blockers = wallBlockers([wall('mid', [4, -5], [4, 5])], [])
     const p = settleSpawn({ x: 4, y: 0 }, blockers)
     expect(Math.abs(p.x - 4)).toBeGreaterThanOrEqual(0.1 + PLAYER_RADIUS_M - 1e-6)
+  })
+})
+
+describe('minimap teleport', () => {
+  const box = (x0: number, y0: number, x1: number, y1: number) =>
+    [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }, { x: x0, y: y0 }]
+  const world: WalkLevels = { elevations: [0, 3.6], holes: [[], [box(0, 0, 2, 3)]], floors: [[], [box(0, 0, 10, 10)]], stairs: [] }
+  const rooms = [box(0, 0, 10, 10)]
+  it('lands on floor of the same storey, inside the house', () => {
+    expect(teleportTo({ x: 5, y: 5 }, 3.6, world, rooms)).toEqual({ x: 5, y: 5 })
+    expect(teleportTo({ x: 5, y: 5 }, 0, world, rooms)).toEqual({ x: 5, y: 5 })
+  })
+  it('refuses a stair well hole and the outside, upstairs and on the ground', () => {
+    expect(teleportTo({ x: 1, y: 1 }, 3.6, world, rooms)).toBeNull()
+    expect(teleportTo({ x: 20, y: 5 }, 3.6, world, rooms)).toBeNull()
+    expect(teleportTo({ x: 20, y: 5 }, 0, world, rooms)).toBeNull()
   })
 })

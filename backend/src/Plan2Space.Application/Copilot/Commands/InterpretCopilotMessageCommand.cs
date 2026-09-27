@@ -33,10 +33,10 @@ public class InterpretCopilotMessageHandler : IRequestHandler<InterpretCopilotMe
         var intent = await _intentClient.ParseIntentAsync(cmd.Message, geometry, ct);
 
         // Start from the full current plan (ids kept) so an edit never drops rooms/openings.
-        var walls = geometry.Walls.Select(w => new WallInput(Points(w.Points), w.ThicknessMeters, w.HeightMeters, w.Id)).ToList();
-        var rooms = geometry.Rooms.Select(r => new RoomInput(Points(r.Points), r.Label, r.Id, r.WallColor)).ToList();
+        var walls = geometry.Walls.Select(w => new WallInput(Points(w.Points), w.ThicknessMeters, w.HeightMeters, w.Id, w.Level)).ToList();
+        var rooms = geometry.Rooms.Select(r => new RoomInput(Points(r.Points), r.Label, r.Id, r.WallColor, r.Level, r.FloorMaterial)).ToList();
         var openings = geometry.Openings.Select(o => new OpeningInput(
-            o.WallId, o.Type, new PointDto(o.Position.X, o.Position.Y), o.WidthMeters, o.SillHeightMeters, o.SwingFlipped)).ToList();
+            o.WallId, o.Type, new PointDto(o.Position.X, o.Position.Y), o.WidthMeters, o.SillHeightMeters, o.SwingFlipped, o.Level, o.DoorStyle)).ToList();
 
         string summary;
         switch (intent.Action)
@@ -66,7 +66,7 @@ public class InterpretCopilotMessageHandler : IRequestHandler<InterpretCopilotMe
                 var offset = RequireNumber(intent.Params, "offset_m", 0, PolylineLength(wall.Points));
                 var width = OptionalNumber(intent.Params, "width_m", MinOpeningWidth, MaxOpeningWidth, DefaultOpeningWidth);
                 openings.Add(new OpeningInput(wallId, type == "door" ? "Door" : "Window", PointAlong(wall.Points, offset),
-                    width, type == "door" ? 0 : WindowSillHeight));
+                    width, type == "door" ? 0 : WindowSillHeight, Level: wall.Level));
                 summary = $"Added a {width:0.##} m {type} {offset:0.##} m along the wall.";
                 break;
             }

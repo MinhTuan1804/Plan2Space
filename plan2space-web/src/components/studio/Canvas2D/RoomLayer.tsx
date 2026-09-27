@@ -4,6 +4,8 @@ import { useGeometryStore } from '../../../stores/geometryStore'
 import { useEditorStore } from '../../../stores/editorStore'
 import { Point } from '../../../services/geometryService'
 import { toScreen } from './canvasTransform'
+import { levelElevation, levelOf } from '../../../lib/levels'
+import { roomView } from '../../../lib/cameraViews'
 
 const LABEL_WIDTH_PX = 140
 
@@ -24,10 +26,13 @@ function centre(points: Point[]): Point {
 
 // Room outlines (drawn under the walls) with their label and area.
 export function RoomLayer() {
-  const rooms = useGeometryStore((s) => s.rooms)
+  const level = useEditorStore((s) => s.level)
+  const rooms = useGeometryStore((s) => s.rooms).filter((r) => levelOf(r) === level)
   const tool = useEditorStore((s) => s.tool)
   const selection = useEditorStore((s) => s.selection)
   const select = useEditorStore((s) => s.select)
+  const setFlyTo = useEditorStore((s) => s.setFlyTo)
+  const walls = useGeometryStore((s) => s.walls)
 
   return (
     <>
@@ -49,6 +54,9 @@ export function RoomLayer() {
               listening={tool === 'select'}
               onClick={() => select({ kind: 'room', id: room.id })}
               onTap={() => select({ kind: 'room', id: room.id })}
+              // Double-click: the 3D view beside the plan flies to this room.
+              onDblClick={() => setFlyTo({ ...roomView(room, levelElevation(walls, levelOf(room))), level: levelOf(room) })}
+              onDblTap={() => setFlyTo({ ...roomView(room, levelElevation(walls, levelOf(room))), level: levelOf(room) })}
             />
             <Text
               x={label.x}

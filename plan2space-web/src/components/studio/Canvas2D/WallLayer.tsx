@@ -5,13 +5,15 @@ import { useEditorStore } from '../../../stores/editorStore'
 import { snapPoint } from './SnapEngine'
 import { PIXELS_PER_METER, screenDeltaToPlan, screenToPlan, toScreen } from './canvasTransform'
 import { snapToWalls } from './useWallTool'
+import { levelOf } from '../../../lib/levels'
 
 export { PIXELS_PER_METER }
 
 const HANDLE_RADIUS_PX = 7
 
 export function WallLayer() {
-  const walls = useGeometryStore((s) => s.walls)
+  const level = useEditorStore((s) => s.level)
+  const walls = useGeometryStore((s) => s.walls).filter((w) => levelOf(w) === level)
   const updateWall = useGeometryStore((s) => s.updateWall)
   const moveWallPoint = useGeometryStore((s) => s.moveWallPoint)
   const tool = useEditorStore((s) => s.tool)
@@ -39,7 +41,7 @@ export function WallLayer() {
               onDragEnd={(e) => {
                 const delta = screenDeltaToPlan(e.target.x(), e.target.y())
                 const rawPoints = wall.points.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y }))
-                const snapped = rawPoints.map((p) => snapPoint(p, useGeometryStore.getState().walls, wall.id))
+                const snapped = rawPoints.map((p) => snapPoint(p, walls, wall.id))
                 updateWall(wall.id, snapped)
                 e.target.position({ x: 0, y: 0 })
               }}
@@ -58,7 +60,7 @@ export function WallLayer() {
                   draggable
                   onDragEnd={(e) => {
                     const target = snapToWalls(screenToPlan({ x: e.target.x(), y: e.target.y() }),
-                      useGeometryStore.getState().walls, wall.id)
+                      walls, wall.id)
                     moveWallPoint(wall.id, index, target)
                   }}
                 />

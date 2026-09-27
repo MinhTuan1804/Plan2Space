@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useGeometryStore } from '../stores/geometryStore'
 import { CanvasEditor } from '../components/studio/Canvas2D/CanvasEditor'
 import { Scene } from '../components/studio/Viewer3D/Scene'
+import { useViewSettingsStore } from '../stores/viewSettingsStore'
 import { StudioToolbar } from '../components/studio/StudioToolbar'
 import { CopilotChat } from '../components/studio/Copilot/CopilotChat'
 import { useUnsavedChangesWarning } from '../hooks/useUnsavedChangesWarning'
@@ -23,6 +24,7 @@ export default function StudioPage() {
   useEffect(() => {
     if (projectId) {
       loadFromServer(projectId).catch(() => {})
+      useViewSettingsStore.getState().load(projectId)
     }
   }, [projectId, loadFromServer])
 

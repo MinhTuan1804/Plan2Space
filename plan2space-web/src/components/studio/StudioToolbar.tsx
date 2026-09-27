@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGeometryStore } from '../../stores/geometryStore'
+import { levelsIn, planMerge } from '../../lib/levels'
+import { MergeFloorsDialog } from './MergeFloorsDialog'
 import { Tool, useEditorStore } from '../../stores/editorStore'
 import { runVectorization } from '../../services/aiJobService'
 import { downloadExport, EXPORT_OPTIONS, ExportFormat } from '../../services/exportService'
@@ -35,6 +37,16 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
   const dirty = useGeometryStore((s) => s.dirty)
   const draftDiscarded = useGeometryStore((s) => s.draftDiscarded)
   const roomsRefreshFailed = useGeometryStore((s) => s.roomsRefreshFailed)
+  const canMerge = planMerge(walls) !== null
+  const levels = levelsIn(walls)
+  const level = useEditorStore((s) => s.level)
+  const setLevel = useEditorStore((s) => s.setLevel)
+  // A level left with no walls (all deleted) is left for one that has them, or the switch would vanish
+  // with the editor stuck on an empty level.
+  useEffect(() => {
+    if (levels.length > 0 && !levels.includes(level)) setLevel(levels[0])
+  }, [levels.join(), level, setLevel])
+  const [merging, setMerging] = useState(false)
 
   const tool = useEditorStore((s) => s.tool)
   const setTool = useEditorStore((s) => s.setTool)
@@ -235,6 +247,24 @@ export function StudioToolbar({ projectId }: { projectId: string }) {
             {actionError}
           </div>
         )}
+
+        {levels.length > 1 && (
+          <div className="flex overflow-hidden rounded-lg border border-zinc-700 text-xs">
+            {levels.map((l) => (
+              <button key={l} onClick={() => setLevel(l)} aria-pressed={level === l}
+                      className={`px-2.5 py-1.5 ${level === l ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-800'}`}>
+                Tầng {l + 1}
+              </button>
+            ))}
+          </div>
+        )}
+        {canMerge && (
+          <button onClick={() => setMerging(true)}
+                  className="rounded-lg border border-blue-700 px-3 py-1.5 text-xs font-medium text-blue-200 hover:bg-blue-900/40">
+            Ghép tầng
+          </button>
+        )}
+        {merging && <MergeFloorsDialog onClose={() => setMerging(false)} />}
 
         <label
           className={`flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium transition ${

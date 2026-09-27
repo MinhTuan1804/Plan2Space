@@ -304,4 +304,99 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
         if (color is null) Assert.Equal(JsonValueKind.Null, room.GetProperty("wallColor").ValueKind);
         else Assert.Equal(color, room.GetProperty("wallColor").GetString());
     }
+
+    // Multi-storey: every element belongs to a level; absent means the ground floor.
+    private static object LevelPlan(uint baseVersion, Guid wallId, int? level, int? openingLevel = null) => new
+    {
+        baseVersion,
+        walls = new[] { new { id = wallId, points = new[] { new { x = 0.0, y = 0.0 }, new { x = 5.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 3.5, level } },
+        rooms = new[] { new { label = "Phòng ngủ", points = Square(0, 0, 3), level } },
+        openings = new[] { new { wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 0.9, sillHeightMeters = 0.0, level = openingLevel ?? level } },
+        furniture = new[] { new { catalogId = "bed_double", x = 1.5, y = 1.5, rotationDeg = 0.0, level } },
+    };
+
+    [Fact]
+    public async Task Levels_RoundTrip_AndDefaultToZero()
+    {
+        var (client, project) = await AuthedProjectAsync($"lvl-{Guid.NewGuid():N}@plan2space.dev");
+        var wallId = Guid.NewGuid();
+        (await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", LevelPlan(0, wallId, 1))).EnsureSuccessStatusCode();
+        var g = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
+        foreach (var list in new[] { "walls", "rooms", "openings", "furniture" })
+            Assert.Equal(1, g.GetProperty(list)[0].GetProperty("level").GetInt32());
+
+        // "absent", not null: an older client simply has no level field.
+        var omitNulls = new JsonSerializerOptions(JsonSerializerDefaults.Web) { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+        (await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", LevelPlan(1, wallId, null), omitNulls)).EnsureSuccessStatusCode();
+        g = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
+        foreach (var list in new[] { "walls", "rooms", "openings", "furniture" })
+            Assert.Equal(0, g.GetProperty(list)[0].GetProperty("level").GetInt32());
+    }
+
+    [Theory]
+    [InlineData(-1, null)]
+    [InlineData(10, null)]
+    [InlineData(0, 1)]      // an opening on another level than its wall
+    public async Task InvalidLevel_Returns400(int level, int? openingLevel)
+    {
+        var (client, project) = await AuthedProjectAsync($"lvl-bad-{Guid.NewGuid():N}@plan2space.dev");
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", LevelPlan(0, Guid.NewGuid(), level, openingLevel));
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    // Stacked floors put rooms at the same place on different levels; only rooms of one level may not overlap.
+    [Fact]
+    public async Task RoomsStackedOnDifferentLevels_AreNotOverlaps()
+    {
+        var (client, project) = await AuthedProjectAsync($"lvl-stack-{Guid.NewGuid():N}@plan2space.dev");
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, openings = Array.Empty<object>(),
+            walls = new[] { new { points = new[] { new { x = 0.0, y = 0.0 }, new { x = 4.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 3.6, level = 0 } },
+            rooms = new[] { new { label = "Phòng khách", points = Square(0, 0, 3), level = 0 }, new { label = "Phòng ngủ", points = Square(0, 0, 3), level = 1 } },
+        });
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+    }
+
+    // A door's model: null picks automatically (a garage door on a garage's outside wall), or the user's choice.
+    [Theory]
+    [InlineData("garage", HttpStatusCode.OK)]
+    [InlineData("standard", HttpStatusCode.OK)]
+    [InlineData("rolling", HttpStatusCode.BadRequest)]
+    public async Task DoorStyle_RoundTrips_AndIsChecked(string style, HttpStatusCode expected)
+    {
+        var (client, project) = await AuthedProjectAsync($"style-{Guid.NewGuid():N}@plan2space.dev");
+        var wallId = Guid.NewGuid();
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, rooms = Array.Empty<object>(),
+            walls = new[] { new { id = wallId, points = new[] { new { x = 0.0, y = 0.0 }, new { x = 4.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 3.6 } },
+            openings = new[] { new { wallId, type = "Door", position = new { x = 2.0, y = 0.0 }, widthMeters = 2.4, sillHeightMeters = 0.0, doorStyle = style } },
+        });
+        Assert.Equal(expected, res.StatusCode);
+        if (expected != HttpStatusCode.OK) return;
+        var g = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
+        Assert.Equal(style, g.GetProperty("openings")[0].GetProperty("doorStyle").GetString());
+    }
+
+    // A room's floor material: null follows the room type; otherwise one of the web's eight PBR materials.
+    [Theory]
+    [InlineData("marble", HttpStatusCode.OK)]
+    [InlineData(null, HttpStatusCode.OK)]
+    [InlineData("gold", HttpStatusCode.BadRequest)]
+    public async Task FloorMaterial_RoundTrips_AndIsChecked(string? material, HttpStatusCode expected)
+    {
+        var (client, project) = await AuthedProjectAsync($"floor-{Guid.NewGuid():N}@plan2space.dev");
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, openings = Array.Empty<object>(),
+            walls = new[] { new { points = new[] { new { x = 0.0, y = 0.0 }, new { x = 4.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 3.6 } },
+            rooms = new[] { new { label = "Phòng khách", points = Square(0, 0, 3), floorMaterial = material } },
+        });
+        Assert.Equal(expected, res.StatusCode);
+        if (expected != HttpStatusCode.OK) return;
+        var g = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
+        var saved = g.GetProperty("rooms")[0].GetProperty("floorMaterial");
+        Assert.Equal(material, saved.ValueKind == JsonValueKind.Null ? null : saved.GetString());
+    }
 }

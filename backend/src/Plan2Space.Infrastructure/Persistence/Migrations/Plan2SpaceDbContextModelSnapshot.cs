@@ -99,6 +99,9 @@ namespace Plan2Space.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
@@ -127,6 +130,12 @@ namespace Plan2Space.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("DoorStyle")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
 
                     b.Property<Point>("Position")
                         .IsRequired()
@@ -184,6 +193,9 @@ namespace Plan2Space.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ViewSettings")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerId");
@@ -226,6 +238,10 @@ namespace Plan2Space.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("FloorMaterial")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<Polygon>("Geometry")
                         .IsRequired()
                         .HasColumnType("geometry (Polygon)");
@@ -233,6 +249,9 @@ namespace Plan2Space.Infrastructure.Persistence.Migrations
                     b.Property<string>("Label")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
@@ -293,6 +312,9 @@ namespace Plan2Space.Infrastructure.Persistence.Migrations
 
                     b.Property<double>("HeightMeters")
                         .HasColumnType("double precision");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
