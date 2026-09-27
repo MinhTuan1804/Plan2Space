@@ -8,6 +8,8 @@ import { SunLight } from './SunLight'
 import { SectionClipping, SectionPanel } from './SectionPanel'
 import { SunStudyPanel, useSun } from './SunStudyPanel'
 import { ViewMarker, ViewTracker } from './ViewTracker'
+import { CameraRig } from './CameraRig'
+import { ViewsPanel } from './ViewsPanel'
 import { MiniMap } from '../MiniMap'
 import { levelScene, levelsIn } from '../../../lib/levels'
 
@@ -44,7 +46,12 @@ export function Scene() {
         </button>
       </div>
 
-      {wallCount > 0 && <SectionPanel />}
+      {wallCount > 0 && (
+        <div className="absolute top-14 right-4 z-10 flex flex-col gap-2">
+          <SectionPanel />
+          <ViewsPanel current={view} />
+        </div>
+      )}
       {wallCount > 0 && <SunStudyPanel />}
       {wallCount > 0 && (
         <MiniMap walls={shown.walls} rooms={shown.rooms} levels={levelsIn(plan.walls)} level={level} onLevel={setLevel}
@@ -72,6 +79,7 @@ export function Scene() {
         <SunLight />
         <SectionClipping />
         <ViewTracker onChange={setView} />
+        <CameraRig />
 
         <OrbitControls
           makeDefault

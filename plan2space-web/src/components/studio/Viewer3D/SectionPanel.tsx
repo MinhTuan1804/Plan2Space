@@ -16,7 +16,7 @@ export function SectionPanel() {
   const section = useEditorStore((s) => s.section)
   const setSection = useEditorStore((s) => s.setSection)
   return (
-    <div className="absolute top-14 right-4 z-10 w-56 rounded-lg border border-zinc-800 bg-[#121215]/90 p-2 text-xs text-zinc-300">
+    <div className="w-56 rounded-lg border border-zinc-800 bg-[#121215]/90 p-2 text-xs text-zinc-300">
       <button onClick={() => setSection(section ? null : NO_CUT)}
               className={`flex w-full items-center justify-center gap-1 rounded px-2 py-1 ${section ? 'bg-amber-600 text-white' : 'bg-zinc-800'}`}>
         <Scissors className="w-3.5 h-3.5" />Cắt lát
