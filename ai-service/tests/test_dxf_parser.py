@@ -210,3 +210,26 @@ def test_room_names_in_mtext_and_in_blocks(tmp_path):
     msp.add_lwpolyline([(0, 0), (4000, 0), (4000, 110), (0, 110)], close=True, dxfattribs={"layer": "WALL"})
     path = tmp_path / "names.dxf"; doc.saveas(path)
     assert sorted(parse_dxf(str(path))["room_names"]) == [("BEP", 6.0, 1.0), ("PHONG KHACH", 2.0, 2.0), ("WC", 8.0, 1.0)]
+
+
+def test_a_plan_drawn_all_on_layer_0_still_has_its_walls(tmp_path):
+    # Unstructured drawings put everything on AutoCAD's default layer; with no wall-named layer at all,
+    # layer 0's lines are the walls (benchmark odd_layers on "0": no walls found, every score 0).
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    msp.add_lwpolyline([(0, 0), (4000, 0), (4000, 110), (0, 110)], close=True, dxfattribs={"layer": "0"})
+    msp.add_line((500, 500), (1500, 500), dxfattribs={"layer": "FURNITURE"})
+    path = tmp_path / "layer0.dxf"; doc.saveas(path)
+    walls = parse_dxf(str(path))["walls"]
+    assert len(walls) == 1 and walls[0]["points"][0][1] == pytest.approx(0.055)
+
+
+def test_layer_0_is_not_a_wall_when_the_plan_has_wall_layers(tmp_path):
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    msp.add_lwpolyline([(0, 0), (4000, 0), (4000, 110), (0, 110)], close=True, dxfattribs={"layer": "WALL"})
+    msp.add_line((0, 3000), (4000, 3000), dxfattribs={"layer": "0"})
+    path = tmp_path / "both.dxf"; doc.saveas(path)
+    assert len(parse_dxf(str(path))["walls"]) == 1

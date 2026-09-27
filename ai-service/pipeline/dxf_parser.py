@@ -80,7 +80,8 @@ def _marker_point(entity, transform: Matrix44 | None) -> tuple[float, float] | N
 
 
 def _extract_from_space(space, transform: Matrix44 | None, inherited_layer: str | None,
-                        scale: float, walls: list[dict], markers: list[tuple[str, float, float]]) -> None:
+                        scale: float, walls: list[dict], markers: list[tuple[str, float, float]],
+                        is_wall_layer=_is_wall_layer) -> None:
     for entity in space:
         kind = entity.dxftype()
         layer = _effective_layer(entity, inherited_layer)
@@ -92,12 +93,12 @@ def _extract_from_space(space, transform: Matrix44 | None, inherited_layer: str 
             block = entity.block()
             if block is None or block.block.is_xref:   # missing definition or unresolved external reference
                 continue
-            _extract_from_space(block, combined, layer, scale, walls, markers)
+            _extract_from_space(block, combined, layer, scale, walls, markers, is_wall_layer)
         elif opening_kind is not None:
             point = _marker_point(entity, transform)
             if point is not None:
                 markers.append((opening_kind, point[0], point[1]))
-        elif kind in WALL_ENTITY_TYPES and _is_wall_layer(layer):
+        elif kind in WALL_ENTITY_TYPES and is_wall_layer(layer):
             points = _raw_points(entity)
             if transform is not None:
                 points = [(v.x, v.y) for v in (transform.transform((x, y, 0)) for x, y in points)]
@@ -338,6 +339,10 @@ def parse_dxf(path: str) -> dict:
     raw: list[dict] = []
     markers: list[tuple[str, float, float]] = []
     _extract_from_space(doc.modelspace(), None, None, 1.0, raw, markers)
+    if not raw:
+        # No wall-named layer at all: an unstructured drawing keeps its walls on the default layer 0.
+        markers = []
+        _extract_from_space(doc.modelspace(), None, None, 1.0, raw, markers, lambda layer: layer == "0")
     if not raw:
         layers = sorted(layer.dxf.name for layer in doc.layers)
         raise NoWallsFoundError(
