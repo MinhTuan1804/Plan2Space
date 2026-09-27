@@ -31,8 +31,15 @@ def total(row: dict) -> float:
 
 
 def compare(baseline: dict, current: dict) -> list[str]:
-    """Cases more than 2 points below their baseline; a case the baseline has not seen is never a regression."""
-    return [c for c, score in current.items() if c in baseline and score < baseline[c] - MAX_DROP]
+    """Every group of every case more than 2 points below its baseline. Per group, not per total: a total
+    averages up to eight groups and would let a whole lost room slip through. New cases and groups pass."""
+    drops = []
+    for case, groups in current.items():
+        for group, score in groups.items():
+            before = baseline.get(case, {}).get(group)
+            if before is not None and score is not None and score < before - MAX_DROP:
+                drops.append(f"{case}: {group} {before:.1f} -> {score:.1f}")
+    return drops
 
 
 def run_stage2() -> dict:
@@ -109,18 +116,23 @@ def main() -> int:
     report.parent.mkdir(exist_ok=True)
     report.write_text(json.dumps(rows, indent=1), encoding="utf-8")
     private = {d.name for d in (HERE / "private").iterdir()} if (HERE / "private").exists() else set()
-    current = {r["case"]: round(total(r), 2) for r in rows if r["case"] not in private}
+    current = {r["case"]: {k: None if r.get(k) is None else round(r[k], 2) for k in STAGE1 + STAGE2}
+               for r in rows if r["case"] not in private}
     if args.update_baseline:
         BASELINE.write_text(json.dumps(current, indent=1, sort_keys=True) + "\n", encoding="utf-8")
         print(f"baseline written: {len(current)} cases")
         return 0
     baseline = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.exists() else {}
     for c in sorted(current):
-        if c in baseline and abs(current[c] - baseline[c]) >= 0.5:
-            print(f"  {c}: {baseline[c]:.1f} -> {current[c]:.1f}")
+        for k, score in current[c].items():
+            before = baseline.get(c, {}).get(k)
+            if before is not None and score is not None and abs(score - before) >= 0.5:
+                print(f"  {c}: {k} {before:.1f} -> {score:.1f}")
     dropped = compare(baseline, current)
     if dropped:
-        print(f"REGRESSION (> {MAX_DROP} points below baseline): {', '.join(dropped)}")
+        print(f"REGRESSION (> {MAX_DROP} points below baseline):")
+        for d in dropped:
+            print(f"  {d}")
         return 1
     return 0
 

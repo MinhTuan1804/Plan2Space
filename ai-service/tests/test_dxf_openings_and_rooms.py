@@ -138,3 +138,32 @@ def test_a_short_pier_between_a_door_and_a_window_bounds_both(tmp_path):
     openings = sorted((o["bbox_center"][0], o["type"]) for o in parse_dxf(str(path))["openings"])
     assert [t for _, t in openings] == ["door", "window"]
     assert [x for x, _ in openings] == pytest.approx([6.7, 8.2], abs=0.1)   # measured to the pier's centre
+
+
+def test_a_door_in_the_neighbouring_wall_does_not_mark_a_corridor_gap(tmp_path):
+    # Review I4: a door drawn in the corridor's side wall, right beside the lined-up cross walls, counted as
+    # "a door in the gap" and the corridor was cut in two again. Only a symbol on the gap itself marks it.
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    rect = lambda x0, y0, x1, y1: msp.add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "WALL"})
+    rect(0, 4445, 5100, 4555); rect(5900, 4445, 8000, 4555)         # south side, a doorway at x 5.1..5.9
+    rect(0, 5645, 8000, 5755)
+    rect(4945, 0, 5055, 4500); rect(4945, 5700, 5055, 9500)
+    msp.add_line((5100, 4500), (5900, 4500), dxfattribs={"layer": "DOOR"})
+    path = tmp_path / "beside.dxf"; doc.saveas(path)
+    openings = parse_dxf(str(path))["openings"]
+    assert [round(o["bbox_center"][0], 2) for o in openings] == [5.5]        # the real doorway only
+
+
+def test_the_layer_0_fallback_leaves_blocks_out(tmp_path):
+    # Review I5: an unstructured drawing's furniture blocks sit on layer 0 too; as walls they close into rooms.
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    msp.add_lwpolyline([(0, 0), (4000, 0), (4000, 110), (0, 110)], close=True, dxfattribs={"layer": "0"})
+    bed = doc.blocks.new("BED")
+    bed.add_lwpolyline([(0, 0), (1600, 0), (1600, 2000), (0, 2000)], close=True, dxfattribs={"layer": "0"})
+    msp.add_blockref("BED", (1000, 1000), dxfattribs={"layer": "0"})
+    path = tmp_path / "bed.dxf"; doc.saveas(path)
+    assert len(parse_dxf(str(path))["walls"]) == 1

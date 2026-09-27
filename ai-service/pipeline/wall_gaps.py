@@ -107,18 +107,26 @@ def find_wall_gaps(walls: list[dict], keep_crossing=None) -> list[tuple[tuple[fl
                     centre = (round((u[0] + v[0]) / 2, 3), round((u[1] + v[1]) / 2, 3))
                     if width < best.get(centre, (None, None, math.inf))[2]:
                         best[centre] = (u, v, width)
-    # A wall end bounds one doorway on each side: a stub further along would otherwise add a wider phantom
-    # gap overlapping the real one, so the narrowest gap at each end and side wins. A short pier's two ends
-    # meet on the wall line at one point, and it stands between two openings, one either side.
-    def side(end, towards):
-        d = math.hypot(towards[0] - end[0], towards[1] - end[1]) or 1.0
-        return end, (round((towards[0] - end[0]) / d, 1), round((towards[1] - end[1]) / d, 1))
+    return one_gap_per_side(list(best.values()))
 
-    kept, used_ends = [], set()
-    for u, v, width in sorted(best.values(), key=lambda g: g[2]):
-        ends = (side(u, v), side(v, u))
-        if any(e in used_ends for e in ends):
+
+def one_gap_per_side(gaps):
+    """A wall end bounds one doorway on each side: a stub further along would otherwise add a wider phantom
+    gap overlapping the real one, so the narrowest gap at each end and side wins. A short pier's two ends meet on the wall line at one point and it stands between two
+    openings, one either side. Same side = the gaps leave the end in directions less than 90° apart."""
+    kept, used = [], {}
+    for u, v, width in sorted(gaps, key=lambda g: g[2]):
+        ends = ((u, (v[0] - u[0], v[1] - u[1])), (v, (u[0] - v[0], u[1] - v[1])))
+        if any(d[0] * e[0] + d[1] * e[1] > 0 for end, d in ends for e in used.get(end, [])):
             continue
-        used_ends.update(ends)
+        for end, d in ends:
+            used.setdefault(end, []).append(d)
         kept.append((u, v, width))
     return kept
+
+
+def point_segment_distance(p, a, b) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length_sq = dx * dx + dy * dy
+    t = 0.0 if length_sq == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / length_sq))
+    return math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)

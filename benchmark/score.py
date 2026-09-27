@@ -101,7 +101,8 @@ def score_rooms(found: dict, truth: dict) -> dict:
 
     splits = sum(1 for i, t in enumerate(tp) if i not in used_t and pieces_cover(t, fp))
     merges = sum(1 for j, f in enumerate(fp) if j not in used_f and pieces_cover(f, tp))
-    score = 100.0 * len(pairs) / len(tp) if tp else 100.0
+    # Mean of recall and precision: rooms that are not there (a phantom wall's slice) cost like missing ones.
+    score = _mean_pr(len(pairs), len(fp), len(pairs), len(tp))
     return {"score": score, "splits": splits, "merges": merges, "pairs": pairs}
 
 

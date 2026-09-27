@@ -6,7 +6,7 @@ from shapely.ops import unary_union
 from ezdxf import recover
 from ezdxf.math import Matrix44
 
-from pipeline.wall_gaps import STUB_LENGTH_M, find_wall_gaps
+from pipeline.wall_gaps import STUB_LENGTH_M, find_wall_gaps, point_segment_distance
 
 DEFAULT_WALL_THICKNESS_M = 0.2
 DEFAULT_WALL_HEIGHT_M = 2.8
@@ -81,7 +81,7 @@ def _marker_point(entity, transform: Matrix44 | None) -> tuple[float, float] | N
 
 def _extract_from_space(space, transform: Matrix44 | None, inherited_layer: str | None,
                         scale: float, walls: list[dict], markers: list[tuple[str, float, float]],
-                        is_wall_layer=_is_wall_layer) -> None:
+                        is_wall_layer=_is_wall_layer, walls_in_blocks: bool = True) -> None:
     for entity in space:
         kind = entity.dxftype()
         layer = _effective_layer(entity, inherited_layer)
@@ -93,7 +93,8 @@ def _extract_from_space(space, transform: Matrix44 | None, inherited_layer: str 
             block = entity.block()
             if block is None or block.block.is_xref:   # missing definition or unresolved external reference
                 continue
-            _extract_from_space(block, combined, layer, scale, walls, markers, is_wall_layer)
+            _extract_from_space(block, combined, layer, scale, walls, markers,
+                                is_wall_layer if walls_in_blocks else (lambda _: False), walls_in_blocks)
         elif opening_kind is not None:
             point = _marker_point(entity, transform)
             if point is not None:
@@ -296,7 +297,7 @@ def _pair_wall_faces(walls: list[dict]) -> list[dict]:
 
 # How far a door/window symbol may sit from the gap it names before the gap is called a plain door.
 OPENING_MARKER_RADIUS_M = 2.5
-# How far outside a gap its own door/window symbol may be (a leaf drawn swung open, a sill line).
+# How far from a gap its own door/window symbol may be (a hinge at the jamb, a sill line on the wall).
 GAP_MARKER_SLACK_M = 0.3
 
 
@@ -308,8 +309,8 @@ def _wall_gap_openings(walls: list[dict], markers: list[tuple[str, float, float]
     Without it the opening snapped to the end of the neighbouring wall and hung half in empty air."""
     openings = []
     def marked(u, v, width) -> bool:
-        cx, cy = (u[0] + v[0]) / 2, (u[1] + v[1]) / 2
-        return any(math.hypot(mx - cx, my - cy) <= width / 2 + GAP_MARKER_SLACK_M for _, mx, my in markers)
+        # On the gap itself: a door in a neighbouring wall, however close, does not mark it.
+        return any(point_segment_distance((mx, my), u, v) <= GAP_MARKER_SLACK_M for _, mx, my in markers)
 
     # A gap between two walls that both end on walls across it is a corridor unless a door is drawn in it.
     for u, v, width in find_wall_gaps(walls, keep_crossing=marked):
@@ -347,9 +348,10 @@ def parse_dxf(path: str) -> dict:
     markers: list[tuple[str, float, float]] = []
     _extract_from_space(doc.modelspace(), None, None, 1.0, raw, markers)
     if not raw:
-        # No wall-named layer at all: an unstructured drawing keeps its walls on the default layer 0.
+        # No wall-named layer at all: an unstructured drawing keeps its walls on the default layer 0 (drawn
+        # directly; its blocks there are furniture, fixtures and symbols).
         markers = []
-        _extract_from_space(doc.modelspace(), None, None, 1.0, raw, markers, lambda layer: layer == "0")
+        _extract_from_space(doc.modelspace(), None, None, 1.0, raw, markers, lambda layer: layer == "0", False)
     if not raw:
         layers = sorted(layer.dxf.name for layer in doc.layers)
         raise NoWallsFoundError(

@@ -63,7 +63,7 @@ def test_a_room_cut_in_two_is_a_split():
     f["rooms"].append({"label": "B", "points": [{"x": 0, "y": 3}, {"x": 5, "y": 3}, {"x": 5, "y": 6.5}, {"x": 0, "y": 6.5}, {"x": 0, "y": 3}]})
     r = score_rooms(f, TRUTH)
     assert r["splits"] == 1 and r["merges"] == 0
-    assert r["score"] == pytest.approx(100 * 5 / 6)
+    assert r["score"] == pytest.approx(100 * (5 / 6 + 5 / 7) / 2)    # one room missing, two half-rooms extra
     assert living
 
 
@@ -96,3 +96,10 @@ def test_names_ignore_accents_and_case():
     assert score_names(f, truth) == pytest.approx(100)
     f["rooms"][1]["label"] = "Room 2"
     assert score_names(f, truth) == pytest.approx(100 * 5 / 6)
+
+
+def test_extra_rooms_cost_precision():
+    f = found_from(TRUTH)
+    f["rooms"] += [{"label": "X", "points": [{"x": 10 + i, "y": 0}, {"x": 11 + i, "y": 0}, {"x": 11 + i, "y": 2},
+                                             {"x": 10 + i, "y": 2}, {"x": 10 + i, "y": 0}]} for i in range(0, 6, 2)]
+    assert score_rooms(f, TRUTH)["score"] == pytest.approx(100 * (1 + 6 / 9) / 2)
