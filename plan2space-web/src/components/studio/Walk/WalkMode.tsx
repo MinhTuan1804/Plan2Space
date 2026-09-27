@@ -141,7 +141,7 @@ export function WalkMode() {
         <color attach="background" args={['#cfe3f5']} />
         <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity * (night ? 0.25 : 0.4)]} />
         <SunLight />
-        <Atmosphere />
+        <Atmosphere softShadows />
         <group rotation={[-Math.PI / 2, 0, 0]}>
           <HouseModel showCeilings />
         </group>

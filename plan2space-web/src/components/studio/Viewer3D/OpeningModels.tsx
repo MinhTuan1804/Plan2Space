@@ -1,6 +1,6 @@
 import React, { Component, ReactNode, Suspense, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { DOOR_SWING_S, doorOpenFraction, GARAGE_ROLL_S } from '../../../lib/interaction'
+import { DOOR_SWING_S, doorOpenFraction, GARAGE_ROLL_S, swingStep } from '../../../lib/interaction'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import { useEditorStore } from '../../../stores/editorStore'
@@ -22,11 +22,13 @@ class Fallback extends Component<{ children: ReactNode }, { failed: boolean }> {
 // How open (0..1, eased) a door is, moving towards `open` over `durationS`; refs only, no re-render per frame.
 function useSwing(open: boolean, durationS: number, apply: (fraction: number) => void) {
   const elapsed = useRef(open ? durationS : 0)
+  const applied = useRef(false)
   useFrame((_, delta) => {
-    const next = Math.min(durationS, Math.max(0, elapsed.current + (open ? delta : -delta)))
-    if (next === elapsed.current && elapsed.current !== 0 && elapsed.current !== durationS) return
-    elapsed.current = next
-    apply(doorOpenFraction(next, durationS))
+    const step = swingStep(elapsed.current, open, delta, durationS, applied.current)
+    elapsed.current = step.elapsed
+    if (!step.apply) return
+    applied.current = true
+    apply(doorOpenFraction(step.elapsed, durationS))
   })
 }
 

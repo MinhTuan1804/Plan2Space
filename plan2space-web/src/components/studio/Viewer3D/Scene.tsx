@@ -26,6 +26,7 @@ import { Eye, Footprints, Ruler } from 'lucide-react'
 
 export function Scene() {
   const setWalking = useEditorStore((s) => s.setWalking)
+  const walking = useEditorStore((s) => s.walking)
   const wallCount = useGeometryStore((s) => s.walls.length)
   const night = !useSun().up
   const [view, setView] = useState<ViewMarker | null>(null)
@@ -106,7 +107,7 @@ export function Scene() {
       >
         <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity * (night ? NIGHT_SKY_SHARE : DAY_SKY_SHARE)]} />
         <SunLight />
-        <Atmosphere />
+        <Atmosphere softShadows={!walking} />
         <SectionClipping />
         <ViewTracker onChange={setView} />
         <CameraRig />

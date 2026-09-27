@@ -74,3 +74,27 @@ describe('the door in sight', () => {
   it('the nearer of two doors in line', () => expect(doorInSight(eye(2, 2.5), ahead, openings, walls, 5)).toBe('d'))
   it('looking over the top of the door misses it', () => expect(doorInSight(eye(2, 1), { x: 0, y: 1, h: 1 }, openings, walls)).toBeNull())
 })
+
+import { lightPool, swingStep } from '../src/lib/interaction'
+
+describe('a fixed pool of room lights', () => {
+  const r = (id: string, level: number, side: number): Room => ({ id, label: id, version: 1, level,
+    points: [{ x: 0, y: 0 }, { x: side, y: 0 }, { x: side, y: side }, { x: 0, y: side }, { x: 0, y: 0 }] })
+  it('always the same number of lights, the viewed storey and larger rooms first', () => {
+    const rooms = [r('small0', 0, 2), ...Array.from({ length: 9 }, (_, i) => r(`up${i}`, 1, 3 + i)), r('big0', 0, 6)]
+    const pool = lightPool(rooms, 0, 8)
+    expect(pool).toHaveLength(8)
+    expect(pool.slice(0, 2).map((x) => x?.id)).toEqual(['big0', 'small0'])
+    expect(pool[2]?.id).toBe('up8')
+    expect(lightPool([r('a', 0, 3)], 0, 8).filter((x) => x === null)).toHaveLength(7)
+  })
+})
+
+describe('a door swing step', () => {
+  it('applies once at rest, then stays quiet until it moves', () => {
+    expect(swingStep(0, false, 0.016, 0.6, false)).toEqual({ elapsed: 0, apply: true })
+    expect(swingStep(0, false, 0.016, 0.6, true)).toEqual({ elapsed: 0, apply: false })
+    expect(swingStep(0, true, 0.1, 0.6, true)).toEqual({ elapsed: 0.1, apply: true })
+    expect(swingStep(0.6, true, 0.1, 0.6, true)).toEqual({ elapsed: 0.6, apply: false })
+  })
+})

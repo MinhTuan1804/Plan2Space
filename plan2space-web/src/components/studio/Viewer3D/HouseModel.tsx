@@ -11,7 +11,7 @@ import { floorPatches, FloorKind, wallHeight } from './floorPlan'
 import { floorTexture } from './textures'
 import { FurnitureModels } from './FurnitureModels'
 import { OpeningModels } from './OpeningModels'
-import { levelElevation, levelScene, levelsIn, PlanData, storeyHeight } from '../../../lib/levels'
+import { levelElevation, levelOf, levelScene, levelsIn, PlanData, storeyHeight } from '../../../lib/levels'
 import { LevelShell } from './LevelShell'
 import { floorPieces, holeRooms, isShaft, stairWells } from './slabs'
 import { StairModel, stairFor } from './StairModel'
@@ -104,6 +104,7 @@ export function HouseModel({ showCeilings }: { showCeilings: boolean }) {
           </group>
         )
       })}
+      <RoomLights rooms={rooms.filter((r) => !isShaft(r, holeRooms(rooms, levelOf(r))))} walls={walls} />
     </>
   )
 }
@@ -128,7 +129,6 @@ function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
       {showCeilings && floors.map((f, i) => <Ceiling key={i} points={f.points} height={height} />)}
       <OpeningModels walls={walls} openings={openings} rooms={rooms} />
       <FurnitureModels furniture={furniture} />
-      <RoomLights rooms={rooms.filter((r) => !holes.includes(r))} ceilingZ={height} />
     </>
   )
 }

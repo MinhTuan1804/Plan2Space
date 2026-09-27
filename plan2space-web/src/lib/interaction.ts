@@ -64,3 +64,23 @@ function nearestSegment(points: Point[], p: Point): { a: Point; b: Point } | nul
   }
   return best
 }
+
+// One frame of a door's swing: where it has got to, and whether its pose needs setting (once at rest, then only
+// while it moves; a door standing still costs nothing).
+export function swingStep(elapsed: number, open: boolean, delta: number, durationS: number, applied: boolean) {
+  const next = Math.min(durationS, Math.max(0, elapsed + (open ? delta : -delta)))
+  return { elapsed: next, apply: !applied || next !== elapsed }
+}
+
+// The rooms given one of a fixed number of point lights: three.js compiles the light count into every shader,
+// so a count that never changes means switching a light never stalls. The storey on view first, then larger
+// rooms; empty slots are null (their light stays mounted at zero intensity).
+export function lightPool(litRooms: Room[], focusLevel: number, size: number): (Room | null)[] {
+  const area = (r: Room) => {
+    const xs = r.points.map((p) => p.x), ys = r.points.map((p) => p.y)
+    return (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))
+  }
+  const ranked = [...litRooms].sort((a, b) =>
+    Number((b.level ?? 0) === focusLevel) - Number((a.level ?? 0) === focusLevel) || area(b) - area(a))
+  return Array.from({ length: size }, (_, i) => ranked[i] ?? null)
+}
