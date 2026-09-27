@@ -315,7 +315,17 @@ def _wall_gap_openings(walls: list[dict], markers: list[tuple[str, float, float]
     # A gap between two walls that both end on walls across it is a corridor unless a door is drawn in it.
     for u, v, width in find_wall_gaps(walls, keep_crossing=marked):
         cx, cy = round((u[0] + v[0]) / 2, 6), round((u[1] + v[1]) / 2, 6)
-        beside = next((w for w in walls if tuple(w["points"][0]) == u or tuple(w["points"][-1]) == u), None)
+        # As thick as the wall the opening interrupts: the longest wall ending at either side of the gap (a short
+        # corner stub beside one jamb is read at the default thickness and must not set it).
+        gx, gy = v[0] - u[0], v[1] - u[1]
+
+        def along_gap(w) -> bool:
+            (ax, ay), (bx, by) = w["points"][0], w["points"][-1]
+            return abs(gx * (by - ay) - gy * (bx - ax)) <= 0.05 * math.hypot(gx, gy) * max(math.hypot(bx - ax, by - ay), 1e-9)
+
+        touching = [w for w in walls if along_gap(w) and any(math.dist(end, w["points"][k]) <= T_JOIN_SLACK_M + 0.15
+                                                             for end in (u, v) for k in (0, -1))]
+        beside = max(touching, key=lambda w: math.dist(w["points"][0], w["points"][-1]), default=None)
         walls.append({"points": [list(u), list(v)],
                       "thickness_m": beside["thickness_m"] if beside else DEFAULT_WALL_THICKNESS_M,
                       "height_m": beside["height_m"] if beside else DEFAULT_WALL_HEIGHT_M})
