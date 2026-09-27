@@ -81,3 +81,44 @@ def test_each_imported_opening_sits_inside_a_wall_that_spans_it():
         a, b = [(q["x"], q["y"]) for q in walls[o["wallId"]]["points"][:2]]
         half = o["widthMeters"] / 2
         assert math.dist(p, a) >= half - 0.01 and math.dist(p, b) >= half - 0.01
+
+
+def _corridor_plan(tmp_path, with_door_marker: bool):
+    # A 1.2 m corridor (y 4.5..5.7) crossed by the line x = 5 of two walls that end on its sides.
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    rect = lambda x0, y0, x1, y1: msp.add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "WALL"})
+    rect(0, 4445, 8000, 4555)          # corridor, south side
+    rect(0, 5645, 8000, 5755)          # corridor, north side
+    rect(4945, 0, 5055, 4500)          # wall ending on the south side
+    rect(4945, 5700, 5055, 9500)       # wall starting on the north side
+    if with_door_marker:
+        msp.add_line((5000, 4500), (5000, 5700), dxfattribs={"layer": "DOOR"})
+    path = tmp_path / "corridor.dxf"; doc.saveas(path)
+    return parse_dxf(str(path))
+
+
+def test_walls_meeting_a_corridor_from_both_sides_are_not_a_doorway(tmp_path):
+    # Benchmark case05: the corridor was cut in two by a wall bridging this "gap" (a room split).
+    parsed = _corridor_plan(tmp_path, with_door_marker=False)
+    assert parsed["openings"] == []
+    assert not any(abs(w["points"][0][1] - 4.5) < 0.01 and abs(w["points"][-1][1] - 5.7) < 0.01 for w in parsed["walls"])
+
+
+def test_the_same_gap_with_a_door_drawn_in_it_is_a_doorway(tmp_path):
+    parsed = _corridor_plan(tmp_path, with_door_marker=True)
+    assert [o["type"] for o in parsed["openings"]] == ["door"]
+
+
+def test_corridor_sides_drawn_in_pieces_that_break_at_the_joint_are_no_doorway_either(tmp_path):
+    # As in case05: the corridor's side walls are separate pieces meeting exactly where the cross walls end.
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    rect = lambda x0, y0, x1, y1: msp.add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "WALL"})
+    rect(0, 4445, 5000, 4555); rect(5000, 4445, 8000, 4555)
+    rect(0, 5645, 5000, 5755); rect(5000, 5645, 8000, 5755)
+    rect(4945, 0, 5055, 4500); rect(4945, 5700, 5055, 9500)
+    path = tmp_path / "pieces.dxf"; doc.saveas(path)
+    assert parse_dxf(str(path))["openings"] == []

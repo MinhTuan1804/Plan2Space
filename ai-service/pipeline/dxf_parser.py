@@ -296,6 +296,8 @@ def _pair_wall_faces(walls: list[dict]) -> list[dict]:
 
 # How far a door/window symbol may sit from the gap it names before the gap is called a plain door.
 OPENING_MARKER_RADIUS_M = 2.5
+# How far outside a gap its own door/window symbol may be (a leaf drawn swung open, a sill line).
+GAP_MARKER_SLACK_M = 0.3
 
 
 def _wall_gap_openings(walls: list[dict], markers: list[tuple[str, float, float]]) -> list[dict]:
@@ -305,12 +307,17 @@ def _wall_gap_openings(walls: list[dict], markers: list[tuple[str, float, float]
     of that wall, so the 3D cut leaves a lintel above every door and wall above and below every window.
     Without it the opening snapped to the end of the neighbouring wall and hung half in empty air."""
     openings = []
-    for u, v, width in find_wall_gaps(walls):
+    def marked(u, v, width) -> bool:
+        cx, cy = (u[0] + v[0]) / 2, (u[1] + v[1]) / 2
+        return any(math.hypot(mx - cx, my - cy) <= width / 2 + GAP_MARKER_SLACK_M for _, mx, my in markers)
+
+    # A gap between two walls that both end on walls across it is a corridor unless a door is drawn in it.
+    for u, v, width in find_wall_gaps(walls, keep_crossing=marked):
+        cx, cy = round((u[0] + v[0]) / 2, 6), round((u[1] + v[1]) / 2, 6)
         beside = next((w for w in walls if tuple(w["points"][0]) == u or tuple(w["points"][-1]) == u), None)
         walls.append({"points": [list(u), list(v)],
                       "thickness_m": beside["thickness_m"] if beside else DEFAULT_WALL_THICKNESS_M,
                       "height_m": beside["height_m"] if beside else DEFAULT_WALL_HEIGHT_M})
-        cx, cy = round((u[0] + v[0]) / 2, 6), round((u[1] + v[1]) / 2, 6)
         kind, best = "door", OPENING_MARKER_RADIUS_M
         for marker_kind, mx, my in markers:
             distance = math.hypot(mx - cx, my - cy)
