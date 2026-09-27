@@ -319,6 +319,16 @@ def _wall_gap_openings(walls: list[dict], markers: list[tuple[str, float, float]
     return sorted(openings, key=lambda o: (o["bbox_center"][1], o["bbox_center"][0]))
 
 
+def _room_texts(entities, inherited_layer: str | None = None):
+    """TEXT/MTEXT on a room-name layer, blocks included (their virtual copies are already placed)."""
+    for e in entities:
+        layer = _effective_layer(e, inherited_layer)
+        if e.dxftype() == "INSERT":
+            yield from _room_texts(e.virtual_entities(), layer)
+        elif e.dxftype() in ("TEXT", "MTEXT") and "ROOM" in layer.upper():
+            yield e
+
+
 def parse_dxf(path: str) -> dict:
     # recover tolerates the small structural defects many CAD exporters leave; readfile rejects the whole file.
     try:
@@ -338,10 +348,11 @@ def parse_dxf(path: str) -> dict:
     walls = _pair_wall_faces(in_metres)
     scaled_markers = [(kind, x * scale, y * scale) for kind, x, y in markers]
     openings = _wall_gap_openings(walls, scaled_markers)   # also adds the wall across each gap
-    # Room names on a room-text layer; area lines ("19.72 m²") are skipped.
-    # ponytail: model-space text only, names inside blocks are missed; walk blocks if a plan needs it.
-    room_names = [(e.plain_text().strip(), e.dxf.insert[0] * scale, e.dxf.insert[1] * scale)
-                  for e in doc.modelspace().query("TEXT MTEXT")
-                  if "ROOM" in e.dxf.layer.upper() and e.plain_text().strip()
-                  and not e.plain_text().strip()[0].isdigit()]
+    # Room names on a room-text layer, in model space or in blocks. A label's first line is the name;
+    # area lines ("19.72 m²"), alone or under the name, are skipped.
+    room_names = []
+    for e in _room_texts(doc.modelspace()):
+        lines = [line.strip() for line in e.plain_text().splitlines() if line.strip()]
+        if lines and not lines[0][0].isdigit():
+            room_names.append((lines[0], e.dxf.insert[0] * scale, e.dxf.insert[1] * scale))
     return {"walls": walls, "openings": openings, "room_names": room_names}

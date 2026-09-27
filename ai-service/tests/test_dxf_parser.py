@@ -192,3 +192,21 @@ def test_a_pier_standing_at_a_doorway_is_kept(tmp_path):
     path = tmp_path / "pier.dxf"; doc.saveas(path)
     walls = parse_dxf(str(path))["walls"]
     assert any(round(w["thickness_m"], 3) == 0.2 for w in walls), "the pier is gone"   # only it is 0.2 thick
+
+
+def test_room_names_in_mtext_and_in_blocks(tmp_path):
+    # A formatted MTEXT carries the name on its first line and the area below it; offices also put the
+    # label in a block. Both lost their room its name (benchmark: names 0 on every mtext_names case).
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    msp.add_mtext(r"{\fArial|b1;PHONG KHACH}\P31.0 m²", dxfattribs={"layer": "TEXT-ROOM", "insert": (2000, 2000)})
+    blk = doc.blocks.new("LABEL")
+    blk.add_text("BEP", dxfattribs={"layer": "TEXT-ROOM"})
+    msp.add_blockref("LABEL", (6000, 1000), dxfattribs={"layer": "TEXT-ROOM"})
+    blk0 = doc.blocks.new("LABEL0")
+    blk0.add_text("WC", dxfattribs={"layer": "0"})                        # layer 0 takes the insert's layer
+    msp.add_blockref("LABEL0", (8000, 1000), dxfattribs={"layer": "A-ANNO-ROOM"})
+    msp.add_lwpolyline([(0, 0), (4000, 0), (4000, 110), (0, 110)], close=True, dxfattribs={"layer": "WALL"})
+    path = tmp_path / "names.dxf"; doc.saveas(path)
+    assert sorted(parse_dxf(str(path))["room_names"]) == [("BEP", 6.0, 1.0), ("PHONG KHACH", 2.0, 2.0), ("WC", 8.0, 1.0)]
