@@ -12,6 +12,7 @@ import { levelElevation, levelScene, levelsIn } from '../../../lib/levels'
 import { holeRooms, stairWells } from '../Viewer3D/slabs'
 import { stairFor } from '../Viewer3D/StairModel'
 import { MiniMap } from '../MiniMap'
+import { doorInSight, lightOn } from '../../../lib/interaction'
 import { Atmosphere, QualityToggle } from '../Viewer3D/Atmosphere'
 import { useSun } from '../Viewer3D/SunStudyPanel'
 
@@ -70,6 +71,29 @@ function Player({ onMove, teleport }: { onMove: (m: WalkerMark) => void; telepor
   }, [camera])
 
   const sincePublish = useRef(0)
+  const night = !useSun().up
+  // E opens or closes the door in sight, L switches the light of the room underfoot; only while walking.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!document.pointerLockElement || e.repeat) return
+      const level = levelForHeight(groundZ.current, world.elevations)
+      const onLevel = <T extends { level?: number }>(xs: T[]) => xs.filter((x) => (x.level ?? 0) === level)
+      if (e.code === 'KeyE') {
+        camera.getWorldDirection(look)
+        const id = doorInSight({ x: position.current.x, y: position.current.y, h: eye.current - world.elevations[level] },
+                               { x: look.x, y: -look.z, h: look.y }, onLevel(openings), onLevel(walls))
+        if (id) useEditorStore.getState().toggleDoor(id)
+      } else if (e.code === 'KeyL') {
+        const room = onLevel(rooms).find((r) => pointInPolygon(position.current, r.points))
+        if (room) {
+          const { lightsOverride, toggleLight } = useEditorStore.getState()
+          toggleLight(room.id, lightOn(room.id, lightsOverride, night))
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [camera, look, world, openings, walls, rooms, night])
   useFrame((_, delta) => {
     const dt = Math.min(delta, MAX_STEP_S)
     camera.getWorldDirection(look)
@@ -133,7 +157,7 @@ export function WalkMode() {
             <div className="absolute left-0 top-1/2 h-px w-4 -translate-y-1/2 bg-white/80" />
           </div>
           <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/50 px-3 py-1 text-xs text-white">
-            W A S D to walk · Shift to run · mouse to look · Esc to pause
+            W A S D to walk · Shift to run · mouse to look · E: mở/đóng cửa · L: đèn · Esc to pause
           </div>
         </>
       )}

@@ -51,3 +51,26 @@ describe('the info card switches', () => {
     expect(useEditorStore.getState().lightsOverride.get('r')).toBe(false)
   })
 })
+
+import { doorInSight } from '../src/lib/interaction'
+import { Opening, Wall } from '../src/services/geometryService'
+
+describe('the door in sight', () => {
+  // A wall along y = 3 with a door at x = 2 and a window at x = 6; a second wall with a door along y = 5.
+  const walls: Wall[] = [
+    { id: 'w', version: 1, points: [{ x: 0, y: 3 }, { x: 10, y: 3 }], thicknessMeters: 0.2, heightMeters: 3 },
+    { id: 'v', version: 1, points: [{ x: 0, y: 5 }, { x: 10, y: 5 }], thicknessMeters: 0.2, heightMeters: 3 },
+  ]
+  const op = (id: string, wallId: string, type: 'Door' | 'Window', x: number, y: number): Opening =>
+    ({ id, wallId, type, position: { x, y }, widthMeters: 0.9, sillHeightMeters: type === 'Door' ? 0 : 0.9, version: 1 })
+  const openings = [op('d', 'w', 'Door', 2, 3), op('win', 'w', 'Window', 6, 3), op('far', 'v', 'Door', 2, 5)]
+  const eye = (x: number, y: number) => ({ x, y, h: 1.6 })
+  const ahead = { x: 0, y: 1, h: 0 }
+
+  it('finds the door straight ahead within reach', () => expect(doorInSight(eye(2, 1), ahead, openings, walls)).toBe('d'))
+  it('nothing beyond 2.5 m', () => expect(doorInSight(eye(2, 0), ahead, openings, walls)).toBeNull())
+  it('nothing when looking away', () => expect(doorInSight(eye(2, 1), { x: 0, y: -1, h: 0 }, openings, walls)).toBeNull())
+  it('a window is not a door', () => expect(doorInSight(eye(6, 1), ahead, openings, walls)).toBeNull())
+  it('the nearer of two doors in line', () => expect(doorInSight(eye(2, 2.5), ahead, openings, walls, 5)).toBe('d'))
+  it('looking over the top of the door misses it', () => expect(doorInSight(eye(2, 1), { x: 0, y: 1, h: 1 }, openings, walls)).toBeNull())
+})

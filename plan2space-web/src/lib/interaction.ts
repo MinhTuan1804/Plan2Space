@@ -1,4 +1,5 @@
-import { Room } from '../services/geometryService'
+import { Opening, Point, Room, Wall } from '../services/geometryService'
+import { DOOR_HEIGHT_M } from '../components/studio/Viewer3D/cutOpenings'
 import { interiorPoint } from './planGeometry'
 
 export const DOOR_SWING_S = 0.6
@@ -21,4 +22,45 @@ export function roomLight(room: Room, ceilingZ: number): { position: [number, nu
   const xs = room.points.map((p) => p.x), ys = room.points.map((p) => p.y)
   const side = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys))
   return { position: [c.x, c.y, ceilingZ - LIGHT_BELOW_CEILING_M], distance: LIGHT_REACH_PER_SIDE * side }
+}
+
+// The door the walker looks at: the nearest door whose opening (its width along its wall, from its sill up to
+// door height) the line of sight crosses within `maxM`. Eye and openings are in one level's plan, h from its floor.
+export function doorInSight(eye: { x: number; y: number; h: number }, look: { x: number; y: number; h: number },
+                            openings: Opening[], walls: Wall[], maxM = 2.5): string | null {
+  const len = Math.hypot(look.x, look.y, look.h)
+  if (len === 0) return null
+  const d = { x: look.x / len, y: look.y / len, h: look.h / len }
+  let best: { id: string; t: number } | null = null
+  for (const o of openings) {
+    if (o.type !== 'Door') continue
+    const wall = walls.find((w) => w.id === o.wallId)
+    const seg = wall && nearestSegment(wall.points, o.position)
+    if (!seg) continue
+    const u = { x: seg.b.x - seg.a.x, y: seg.b.y - seg.a.y }
+    const ul = Math.hypot(u.x, u.y)
+    const n = { x: -u.y / ul, y: u.x / ul }
+    const facing = n.x * d.x + n.y * d.y
+    if (Math.abs(facing) < 1e-9) continue                         // looking along the wall
+    const t = (n.x * (o.position.x - eye.x) + n.y * (o.position.y - eye.y)) / facing
+    if (t <= 0 || t > maxM || (best && t >= best.t)) continue
+    const hit = { x: eye.x + d.x * t, y: eye.y + d.y * t, h: eye.h + d.h * t }
+    const along = ((hit.x - o.position.x) * u.x + (hit.y - o.position.y) * u.y) / ul
+    if (Math.abs(along) > o.widthMeters / 2 || hit.h < o.sillHeightMeters || hit.h > o.sillHeightMeters + DOOR_HEIGHT_M) continue
+    best = { id: o.id, t }
+  }
+  return best?.id ?? null
+}
+
+function nearestSegment(points: Point[], p: Point): { a: Point; b: Point } | null {
+  let best: { a: Point; b: Point; d: number } | null = null
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i + 1]
+    const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy
+    if (l2 === 0) continue
+    const s = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2))
+    const d = Math.hypot(p.x - a.x - s * dx, p.y - a.y - s * dy)
+    if (!best || d < best.d) best = { a, b, d }
+  }
+  return best
 }
