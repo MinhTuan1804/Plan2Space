@@ -1,0 +1,13 @@
+{
+  "materials": [
+    { "id": "wood_oak", "asset": "WoodFloor041" },
+    { "id": "wood_walnut", "asset": "WoodFloor051" },
+    { "id": "wood_light", "asset": "WoodFloor043" },
+    { "id": "marble", "asset": "Marble012" },
+    { "id": "ceramic_tile", "asset": "Tiles107" },
+    { "id": "terrazzo", "asset": "Terrazzo013" },
+    { "id": "pebbles", "asset": "Gravel023" },
+    { "id": "concrete", "asset": "Concrete034" }
+  ],
+  "hdri": { "asset": "kloofendal_48d_partly_cloudy_puresky", "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloofendal_48d_partly_cloudy_puresky_1k.hdr" }
+}
