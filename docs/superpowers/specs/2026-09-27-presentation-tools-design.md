@@ -115,10 +115,10 @@ Validation. A body that fails any rule gets 400 with a message:
 ## Testing
 
 Pure logic:
-- `sunPosition` against NOAA values for three cases:
-  - Hà Nội, 21 June, 12:00 local: altitude ≈ 87.4°;
-  - TP.HCM, 21 December, 08:00: altitude ≈ 26.2°, azimuth ≈ 128.5°;
-  - Đà Nẵng, 21 March, 06:00: altitude ≈ 0 ± 1°.
+- `sunPosition` against NOAA's calculator, within 1°, for three cases. The expected values are read from NOAA's calculator when the test is written; the figures below are approximate.
+  - Hà Nội, 21 June, 12:00 local: altitude near 87°;
+  - TP.HCM, 21 December, 08:00: a low morning sun in the south-east;
+  - Đà Nẵng, 21 March, 06:00: around sunrise, altitude near 0°.
 - `sunDirection` with `northDeg` 0 and 90.
 - `mapTransform` round trip.
 - `roomView`.
