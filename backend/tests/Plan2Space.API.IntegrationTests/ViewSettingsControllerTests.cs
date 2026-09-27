@@ -69,6 +69,14 @@ public class ViewSettingsControllerTests : IClassFixture<Plan2SpaceWebApplicatio
     }
 
     [Fact]
+    public async Task ANullView_Returns400NotACrash()
+    {
+        var (client, project) = await AuthedProjectAsync($"vs-null-{Guid.NewGuid():N}@plan2space.dev");
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/view-settings", Body(views: new object[] { null! }));
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
     public async Task OtherUsersProject_Returns404()
     {
         var (_, project) = await AuthedProjectAsync($"vs-own-{Guid.NewGuid():N}@plan2space.dev");

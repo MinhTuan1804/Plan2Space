@@ -12,7 +12,7 @@ import { CameraRig } from './CameraRig'
 import { ViewsPanel } from './ViewsPanel'
 import { InfoCard } from './InfoCard'
 import { MeasureTool } from './MeasureTool'
-import { findPick } from '../../../lib/measure'
+import { findPick, isClick } from '../../../lib/measure'
 import { Vec3 } from '../../../services/viewSettingsService'
 import { MiniMap } from '../MiniMap'
 import { levelScene, levelsIn } from '../../../lib/levels'
@@ -131,6 +131,7 @@ export function Scene() {
         <group rotation={[-Math.PI / 2, 0, 0]}
                onClick={(e) => {
                  e.stopPropagation()
+                 if (!isClick(e.delta)) return                                  // an orbit drag, not a click
                  if (tool3d === 'measure') {
                    const p = e.point.toArray() as Vec3
                    setMeasure((m) => (m.length >= 2 ? [p] : [...m, p]))   // a third click starts again

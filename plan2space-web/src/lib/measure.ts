@@ -11,3 +11,7 @@ export function findPick(object: THREE.Object3D | null): NonNullable<Picked> | n
 export const distance3 = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2])
 export const formatMetres = (d: number) => `${d.toFixed(2)} m`
 export const formatArea = (a: number) => `${a.toFixed(1)} m²`
+
+// R3F fires onClick after any press and release, drags included; a press that moved further orbited the view.
+export const CLICK_MAX_DRAG_PX = 2
+export const isClick = (delta: number) => delta <= CLICK_MAX_DRAG_PX

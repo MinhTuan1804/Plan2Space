@@ -33,9 +33,10 @@ describe('view settings store', () => {
       .mockResolvedValueOnce(undefined)
     const first = useViewSettingsStore.getState().update({ northDeg: 10 })
     const second = useViewSettingsStore.getState().update({ northDeg: 20 })
-    await second
+    await Promise.resolve()
     finishFirst()
     await first
+    await second
     expect(useViewSettingsStore.getState().settings.northDeg).toBe(20)
     expect(vi.mocked(service.saveViewSettings).mock.lastCall![1].northDeg).toBe(20)
     expect(useViewSettingsStore.getState().saveError).toBeNull()
@@ -46,5 +47,24 @@ describe('view settings store', () => {
     await useViewSettingsStore.getState().update({ northDeg: 45 })
     expect(useViewSettingsStore.getState().settings.northDeg).toBe(45)
     expect(useViewSettingsStore.getState().saveError).toBe('Không lưu được cài đặt xem')
+  })
+})
+
+describe('saving in order', () => {
+  beforeEach(() => {
+    vi.mocked(service.saveViewSettings).mockReset()
+    useViewSettingsStore.setState({ projectId: 'p', settings: DEFAULT_VIEW_SETTINGS, saveError: null })
+  })
+  it('sends one save at a time and ends with the latest settings on the server', async () => {
+    const pending: (() => void)[] = []
+    vi.mocked(service.saveViewSettings).mockImplementation(() => new Promise<void>((r) => pending.push(r)))
+    const saves = [10, 20, 30].map((n) => useViewSettingsStore.getState().update({ northDeg: n }))
+    await Promise.resolve()
+    expect(vi.mocked(service.saveViewSettings)).toHaveBeenCalledTimes(1)       // the others wait their turn
+    while (pending.length) { pending.shift()!(); await new Promise((r) => setTimeout(r, 0)) }
+    await Promise.all(saves)
+    const bodies = vi.mocked(service.saveViewSettings).mock.calls.map((c) => c[1].northDeg)
+    expect(bodies[bodies.length - 1]).toBe(30)
+    expect(bodies).toEqual([10, 30])                                             // 20 was superseded before its turn
   })
 })

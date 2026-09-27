@@ -9,8 +9,10 @@ interface ViewSettingsState {
   update: (patch: Partial<ViewSettings>) => Promise<void>
 }
 
-// Only the newest save may report back: an earlier one finishing late must not undo a newer change.
-let latestSave = 0
+// One save at a time, always of the newest settings: parallel PUTs could land out of order and leave an older
+// value on the server. Changes made while a save is out wait, and only the latest of them is sent.
+let queued: { projectId: string; settings: ViewSettings } | null = null
+let saving: Promise<void> | null = null
 
 export const useViewSettingsStore = create<ViewSettingsState>((set, get) => ({
   projectId: null,
@@ -30,12 +32,22 @@ export const useViewSettingsStore = create<ViewSettingsState>((set, get) => ({
     set({ settings })
     const projectId = get().projectId
     if (!projectId) return
-    const mine = ++latestSave
-    try {
-      await saveViewSettings(projectId, settings)
-      if (mine === latestSave) set({ saveError: null })
-    } catch {
-      if (mine === latestSave) set({ saveError: 'Không lưu được cài đặt xem' })
-    }
+    queued = { projectId, settings }
+    saving ??= (async () => {
+      let error: string | null = null
+      while (queued) {
+        const next = queued
+        queued = null
+        try {
+          await saveViewSettings(next.projectId, next.settings)
+          error = null
+        } catch {
+          error = 'Không lưu được cài đặt xem'
+        }
+      }
+      saving = null
+      set({ saveError: error })
+    })()
+    return saving
   },
 }))

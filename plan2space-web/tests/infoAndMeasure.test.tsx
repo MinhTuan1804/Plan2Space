@@ -59,3 +59,19 @@ describe('the info card', () => {
     expect(container.textContent).toBe('')
   })
 })
+
+import { isClick } from '../src/lib/measure'
+import { sameMarker } from '../src/components/studio/Viewer3D/ViewTracker'
+
+describe('clicks and view updates', () => {
+  it('a drag that orbits the view is not a click', () => {
+    expect(isClick(0)).toBe(true); expect(isClick(2)).toBe(true); expect(isClick(12)).toBe(false)
+  })
+  it('an unmoved view is the same marker; a moved one is not', () => {
+    const m = { x: 1, y: 2, headingDeg: 30, targetHeight: 1.2, camera: [4, 5, 6] as [number, number, number] }
+    expect(sameMarker(m, { ...m, x: 1.0001 })).toBe(true)
+    expect(sameMarker(m, { ...m, x: 1.2 })).toBe(false)
+    expect(sameMarker(m, { ...m, headingDeg: 35 })).toBe(false)
+    expect(sameMarker(null, m)).toBe(false)
+  })
+})

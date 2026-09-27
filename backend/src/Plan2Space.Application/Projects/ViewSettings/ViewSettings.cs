@@ -24,6 +24,7 @@ public record ViewSettingsDto(LocationDto Location, double NorthDeg, List<SavedV
         if (Views is null || Views.Count > MaxViews) return $"At most {MaxViews} saved views.";
         foreach (var v in Views)
         {
+            if (v is null) return "A saved view is missing.";
             var name = v.Name?.Trim() ?? "";
             if (name.Length is 0 or > MaxNameLength) return $"A view needs a name of 1-{MaxNameLength} characters.";
             if (v.Level is < 0 or > 9) return "A view's level must be between 0 and 9.";
