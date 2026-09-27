@@ -1,4 +1,7 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { Suspense, useEffect, useMemo } from 'react'
+import { LoadFallback } from './Atmosphere'
+import { PbrFloor } from './FloorMaterialMesh'
+import { floorMaterialOf, FloorMaterialId } from '../../../lib/floorMaterials'
 import * as THREE from 'three'
 import { useGeometryStore } from '../../../stores/geometryStore'
 import { Opening, Point, Room, Wall } from '../../../services/geometryService'
@@ -46,13 +49,24 @@ function useShape(points: Point[], holes: Point[][] = NO_HOLES) {
   return geometry
 }
 
-function Floor({ points, kind, holes, roomId }: { points: Point[]; kind: FloorKind; holes?: Point[][]; roomId?: string }) {
+// A room's floor in its PBR material; while that loads, or if it cannot, the painted floor of before.
+function Floor({ points, kind, holes, roomId, material }:
+    { points: Point[]; kind: FloorKind; holes?: Point[][]; roomId?: string; material?: FloorMaterialId }) {
   const geometry = useShape(points, holes)
   const texture = floorTexture(kind)
-  return (
-    <mesh geometry={geometry} position={[0, 0, 0.002]} receiveShadow userData={roomId ? { pick: { kind: 'room', id: roomId } } : {}}>
+  const userData = roomId ? { pick: { kind: 'room', id: roomId } } : {}
+  const painted = (
+    <mesh geometry={geometry} position={[0, 0, 0.002]} receiveShadow userData={userData}>
       <meshStandardMaterial map={texture} color={texture ? '#ffffff' : FLOOR_FALLBACK[kind]} roughness={0.8} />
     </mesh>
+  )
+  if (!material) return painted
+  return (
+    <LoadFallback fallback={painted}>
+      <Suspense fallback={painted}>
+        <PbrFloor geometry={geometry} material={material} userData={userData} />
+      </Suspense>
+    </LoadFallback>
   )
 }
 
@@ -100,8 +114,8 @@ function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
     const solid = rooms.filter((r) => !isShaft(r, holes))
     if (rooms.length > 0 && solid.length === 0) return []
     return floorPatches(solid, walls).flatMap((f, i) => solid[i]
-      ? floorPieces(solid[i], holes).map(([outer, ...inner]) => ({ kind: f.kind, points: outer, holes: inner, roomId: solid[i].id }))
-      : [{ ...f, holes: [] as Point[][], roomId: undefined as string | undefined }])
+      ? floorPieces(solid[i], holes).map(([outer, ...inner]) => ({ kind: f.kind, points: outer, holes: inner, roomId: solid[i].id, material: floorMaterialOf(solid[i]) as FloorMaterialId | undefined }))
+      : [{ ...f, holes: [] as Point[][], roomId: undefined as string | undefined, material: undefined as FloorMaterialId | undefined }])
   }, [rooms, walls, holes])
   const joints = useMemo(() => new Map(walls.map((w) => [w.id, wallEndExtensions(w, walls)])), [walls])
   const height = wallHeight(walls)
@@ -109,7 +123,7 @@ function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
   return (
     <>
       {walls.map((wall) => <WallMesh key={wall.id} wall={wall} openings={openings} extend={joints.get(wall.id)!} rooms={rooms} />)}
-      {floors.map((f, i) => <Floor key={i} points={f.points} kind={f.kind} holes={f.holes} roomId={f.roomId} />)}
+      {floors.map((f, i) => <Floor key={i} points={f.points} kind={f.kind} holes={f.holes} roomId={f.roomId} material={f.material} />)}
       {showCeilings && floors.map((f, i) => <Ceiling key={i} points={f.points} height={height} />)}
       <OpeningModels walls={walls} openings={openings} rooms={rooms} />
       <FurnitureModels furniture={furniture} />

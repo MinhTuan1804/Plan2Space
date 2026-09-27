@@ -1,6 +1,7 @@
 import React, { Component, ReactNode, Suspense, useMemo } from 'react'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
+import { useEditorStore } from '../../../stores/editorStore'
 import { Opening, Room, Wall } from '../../../services/geometryService'
 import { doorSwingSign, isGarageDoor } from '../../../lib/doorSwing'
 import { Catalog, CatalogDoor, CatalogGarageDoor, useCatalog } from '../../../services/catalogService'
@@ -47,6 +48,11 @@ function GarageDoor({ door, width }: { door: CatalogGarageDoor; width: number })
 }
 
 function WindowFrame({ width, thickness }: { width: number; thickness: number }) {
+  // High quality: real glass (transmission) that refracts and reflects the sky; low: a light see-through pane.
+  const high = useEditorStore((s) => s.quality) === 'high'
+  const glass = high
+    ? <meshPhysicalMaterial color="#eef6ff" transmission={1} roughness={0.05} thickness={0.01} metalness={0} side={THREE.DoubleSide} />
+    : <meshPhysicalMaterial color="#cfe8ff" transparent opacity={0.3} roughness={0.05} metalness={0} side={THREE.DoubleSide} />
   const parts = useMemo(() => windowParts(width, WINDOW_HEIGHT_M, thickness), [width, thickness])
   return (
     <>
@@ -55,7 +61,7 @@ function WindowFrame({ width, thickness }: { width: number; thickness: number })
           <boxGeometry args={p.size} />
           {p.kind === 'frame'
             ? <meshStandardMaterial color={FRAME_COLOUR} roughness={0.6} />
-            : <meshPhysicalMaterial color="#cfe8ff" transparent opacity={0.3} roughness={0.05} metalness={0} side={THREE.DoubleSide} />}
+            : glass}
         </mesh>
       ))}
     </>
