@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react'
+import React, { Suspense, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Center } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
@@ -7,6 +7,9 @@ import { HouseModel } from './HouseModel'
 import { SunLight } from './SunLight'
 import { SectionClipping, SectionPanel } from './SectionPanel'
 import { SunStudyPanel, useSun } from './SunStudyPanel'
+import { ViewMarker, ViewTracker } from './ViewTracker'
+import { MiniMap } from '../MiniMap'
+import { levelScene, levelsIn } from '../../../lib/levels'
 
 const NIGHT_SKY_SHARE = 0.25
 import { SKY_LIGHT, TONE_MAPPING } from './lighting'
@@ -16,6 +19,12 @@ export function Scene() {
   const setWalking = useEditorStore((s) => s.setWalking)
   const wallCount = useGeometryStore((s) => s.walls.length)
   const night = !useSun().up
+  const [view, setView] = useState<ViewMarker | null>(null)
+  const level = useEditorStore((s) => s.level)
+  const setLevel = useEditorStore((s) => s.setLevel)
+  const setFlyTo = useEditorStore((s) => s.setFlyTo)
+  const plan = { walls: useGeometryStore((s) => s.walls), rooms: useGeometryStore((s) => s.rooms), openings: [], furniture: [] }
+  const shown = levelScene(plan, level)
   return (
     <div className="w-full h-full relative bg-[#09090b]">
       {/* 3D Viewport HUD overlay */}
@@ -37,6 +46,14 @@ export function Scene() {
 
       {wallCount > 0 && <SectionPanel />}
       {wallCount > 0 && <SunStudyPanel />}
+      {wallCount > 0 && (
+        <MiniMap walls={shown.walls} rooms={shown.rooms} levels={levelsIn(plan.walls)} level={level} onLevel={setLevel}
+                 marker={view && { x: view.x, y: view.y, headingDeg: view.headingDeg }}
+                 onPick={(p) => view && setFlyTo({
+                   // Keep the camera's offset from what it looks at; move what it looks at to the click.
+                   position: [view.camera[0] + p.x - view.x, view.camera[1] + p.y - view.y, view.camera[2]],
+                   target: [p.x, p.y, view.targetHeight], level })} />
+      )}
 
       <div className="absolute bottom-4 right-4 z-10 pointer-events-none flex items-center gap-2 text-[11px] font-mono text-zinc-400 bg-zinc-950/80 px-2 py-1 rounded border border-zinc-800/80">
         <span>Rotate: Left Click</span>
@@ -54,6 +71,7 @@ export function Scene() {
         <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity * (night ? NIGHT_SKY_SHARE : 1)]} />
         <SunLight />
         <SectionClipping />
+        <ViewTracker onChange={setView} />
 
         <OrbitControls
           makeDefault

@@ -214,3 +214,11 @@ export function levelForHeight(z: number, elevations: number[]): number {
   elevations.forEach((e, l) => { if (e <= z + LEVEL_SNAP_M) level = l })
   return level
 }
+
+// A minimap click in walk mode: the point, when it is floor of the walker's own storey (inside one of its
+// rooms, not over a stair or light well); otherwise null and the walker stays put.
+export function teleportTo(to: Point, groundZ: number, w: WalkLevels, levelRooms: Point[][]): Point | null {
+  if (!levelRooms.some((r) => pointInPolygon(to, r))) return null
+  const z = groundAt(to, groundZ, w)
+  return z !== null && Math.abs(z - groundZ) < 0.01 ? { ...to } : null
+}
