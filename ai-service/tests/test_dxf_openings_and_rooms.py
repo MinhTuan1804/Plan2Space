@@ -122,3 +122,19 @@ def test_corridor_sides_drawn_in_pieces_that_break_at_the_joint_are_no_doorway_e
     rect(4945, 0, 5055, 4500); rect(4945, 5700, 5055, 9500)
     path = tmp_path / "pieces.dxf"; doc.saveas(path)
     assert parse_dxf(str(path))["openings"] == []
+
+
+def test_a_short_pier_between_a_door_and_a_window_bounds_both(tmp_path):
+    # Benchmark case11: a 0.2 m pier between the front door and a window; the pier's ends collapse to one
+    # point on the wall line, which could bound only one opening, so the window was lost (and a stub left).
+    import ezdxf
+    doc = ezdxf.new(); doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    rect = lambda x0, x1: msp.add_lwpolyline([(x0, -110), (x1, -110), (x1, 110), (x0, 110)], close=True, dxfattribs={"layer": "WALL"})
+    rect(0, 6100); rect(7300, 7500); rect(8900, 10000)
+    msp.add_line((6100, 0), (7300, 0), dxfattribs={"layer": "DOOR"})
+    msp.add_line((7500, 0), (8900, 0), dxfattribs={"layer": "WINDOW"})
+    path = tmp_path / "pier.dxf"; doc.saveas(path)
+    openings = sorted((o["bbox_center"][0], o["type"]) for o in parse_dxf(str(path))["openings"])
+    assert [t for _, t in openings] == ["door", "window"]
+    assert [x for x, _ in openings] == pytest.approx([6.7, 8.2], abs=0.1)   # measured to the pier's centre

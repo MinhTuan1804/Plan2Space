@@ -107,12 +107,18 @@ def find_wall_gaps(walls: list[dict], keep_crossing=None) -> list[tuple[tuple[fl
                     centre = (round((u[0] + v[0]) / 2, 3), round((u[1] + v[1]) / 2, 3))
                     if width < best.get(centre, (None, None, math.inf))[2]:
                         best[centre] = (u, v, width)
-    # A wall end bounds one doorway only: a stub further along would otherwise add a wider phantom gap
-    # overlapping the real one. The narrowest gap at each end wins.
+    # A wall end bounds one doorway on each side: a stub further along would otherwise add a wider phantom
+    # gap overlapping the real one, so the narrowest gap at each end and side wins. A short pier's two ends
+    # meet on the wall line at one point, and it stands between two openings, one either side.
+    def side(end, towards):
+        d = math.hypot(towards[0] - end[0], towards[1] - end[1]) or 1.0
+        return end, (round((towards[0] - end[0]) / d, 1), round((towards[1] - end[1]) / d, 1))
+
     kept, used_ends = [], set()
     for u, v, width in sorted(best.values(), key=lambda g: g[2]):
-        if u in used_ends or v in used_ends:
+        ends = (side(u, v), side(v, u))
+        if any(e in used_ends for e in ends):
             continue
-        used_ends.update((u, v))
+        used_ends.update(ends)
         kept.append((u, v, width))
     return kept
