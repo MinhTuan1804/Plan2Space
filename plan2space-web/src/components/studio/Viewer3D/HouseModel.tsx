@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useMemo } from 'react'
 import { LoadFallback } from './Atmosphere'
 import { PbrFloor } from './FloorMaterialMesh'
 import { RoomLights } from './RoomLights'
+import { asParapet } from '../../../lib/parapets'
 import { floorMaterialOf, FloorMaterialId } from '../../../lib/floorMaterials'
 import * as THREE from 'three'
 import { useGeometryStore } from '../../../stores/geometryStore'
@@ -119,12 +120,14 @@ function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
       ? floorPieces(solid[i], holes).map(([outer, ...inner]) => ({ kind: f.kind, points: outer, holes: inner, roomId: solid[i].id, material: floorMaterialOf(solid[i]) as FloorMaterialId | undefined }))
       : [{ ...f, holes: [] as Point[][], roomId: undefined as string | undefined, material: undefined as FloorMaterialId | undefined }])
   }, [rooms, walls, holes])
-  const joints = useMemo(() => new Map(walls.map((w) => [w.id, wallEndExtensions(w, walls)])), [walls])
+  // Thin outside walls of balconies and yards stand as 1.1 m parapets, not storey-high slabs.
+  const shown = useMemo(() => walls.map((w) => asParapet(w, rooms)), [walls, rooms])
+  const joints = useMemo(() => new Map(shown.map((w) => [w.id, wallEndExtensions(w, shown)])), [shown])
   const height = wallHeight(walls)
 
   return (
     <>
-      {walls.map((wall) => <WallMesh key={wall.id} wall={wall} openings={openings} extend={joints.get(wall.id)!} rooms={rooms} />)}
+      {shown.map((wall) => <WallMesh key={wall.id} wall={wall} openings={openings} extend={joints.get(wall.id)!} rooms={rooms} />)}
       {floors.map((f, i) => <Floor key={i} points={f.points} kind={f.kind} holes={f.holes} roomId={f.roomId} material={f.material} />)}
       {showCeilings && floors.map((f, i) => <Ceiling key={i} points={f.points} height={height} />)}
       <OpeningModels walls={walls} openings={openings} rooms={rooms} />
