@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { Underlay } from '../services/underlayService'
 import { SectionBox } from '../lib/sectionBox'
 import { Vec3 } from '../services/viewSettingsService'
+import { loadQuality, Quality, saveQuality } from '../lib/quality'
 
 // A camera move the 3D view makes and then clears: plan coordinates [x, y, height].
 export interface FlyTo { position: Vec3; target: Vec3; level: number }
@@ -48,6 +49,8 @@ interface EditorState {
   setTool3d: (tool: 'select' | 'measure') => void
   picked: Picked
   setPicked: (picked: Picked) => void
+  quality: Quality
+  setQuality: (quality: Quality) => void
   // A saved calibration whose image scale could not be sent yet; retried from the editor.
   pendingUnderlayMpp: number | null
   setPendingUnderlayMpp: (mpp: number | null) => void
@@ -90,6 +93,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   setTool3d: (tool3d) => set({ tool3d, picked: null }),
   picked: null,
   setPicked: (picked) => set({ picked }),
+  quality: loadQuality(),
+  setQuality: (quality) => { saveQuality(quality); set({ quality }) },
   pendingUnderlayMpp: null,
   setPendingUnderlayMpp: (pendingUnderlayMpp) => set({ pendingUnderlayMpp }),
   underlayMeta: null,

@@ -12,6 +12,8 @@ import { levelElevation, levelScene, levelsIn } from '../../../lib/levels'
 import { holeRooms, stairWells } from '../Viewer3D/slabs'
 import { stairFor } from '../Viewer3D/StairModel'
 import { MiniMap } from '../MiniMap'
+import { Atmosphere, QualityToggle } from '../Viewer3D/Atmosphere'
+import { useSun } from '../Viewer3D/SunStudyPanel'
 
 const EYE_EASE_S = 0.15
 import { pointInPolygon } from '../../../lib/planGeometry'
@@ -100,6 +102,7 @@ function Player({ onMove, teleport }: { onMove: (m: WalkerMark) => void; telepor
 export function WalkMode() {
   const setWalking = useEditorStore((s) => s.setWalking)
   const [locked, setLocked] = useState(false)
+  const night = !useSun().up
   const [walker, setWalker] = useState<WalkerMark | null>(null)
   const teleport = useRef<{ x: number; y: number } | null>(null)
   const walls = useGeometryStore((s) => s.walls)
@@ -112,8 +115,9 @@ export function WalkMode() {
     <div className="fixed inset-0 z-50 bg-black">
       <Canvas shadows camera={{ fov: 70, near: 0.05, far: 200 }} gl={{ antialias: true, toneMapping: TONE_MAPPING }}>
         <color attach="background" args={['#cfe3f5']} />
-        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity]} />
+        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity * (night ? 0.25 : 0.4)]} />
         <SunLight />
+        <Atmosphere />
         <group rotation={[-Math.PI / 2, 0, 0]}>
           <HouseModel showCeilings />
         </group>
@@ -140,6 +144,7 @@ export function WalkMode() {
           <div className="text-sm">Walk through your plan</div>
           <button id="walk-continue" className="rounded bg-blue-600 px-4 py-2 text-sm">Click to walk</button>
           <button onClick={() => setWalking(false)} className="text-xs text-zinc-400 hover:text-white">Exit to the editor</button>
+          <div className="text-xs text-zinc-400">Chất lượng: <QualityToggle /></div>
         </div>
       </div>
       {/* Last, so it sits above the pause screen: click it while paused to step somewhere else. */}

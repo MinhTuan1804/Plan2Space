@@ -7,6 +7,7 @@ import { HouseModel } from './HouseModel'
 import { SunLight } from './SunLight'
 import { SectionClipping, SectionPanel } from './SectionPanel'
 import { SunStudyPanel, useSun } from './SunStudyPanel'
+import { Atmosphere, QualityToggle } from './Atmosphere'
 import { ViewMarker, ViewTracker } from './ViewTracker'
 import { CameraRig } from './CameraRig'
 import { ViewsPanel } from './ViewsPanel'
@@ -18,6 +19,8 @@ import { MiniMap } from '../MiniMap'
 import { levelScene, levelsIn } from '../../../lib/levels'
 
 const NIGHT_SKY_SHARE = 0.25
+// The HDRI now carries most of the fill light; the hemisphere keeps a little, by day.
+const DAY_SKY_SHARE = 0.4
 import { SKY_LIGHT, TONE_MAPPING } from './lighting'
 import { Eye, Footprints, Ruler } from 'lucide-react'
 
@@ -67,6 +70,7 @@ export function Scene() {
           <Ruler className="w-3.5 h-3.5" />
           <span>Đo</span>
         </button>
+        <QualityToggle />
       </div>
 
       {wallCount > 0 && (
@@ -100,8 +104,9 @@ export function Scene() {
         camera={{ position: [12, 12, 12], fov: 45 }}
         gl={{ antialias: true, alpha: true, toneMapping: TONE_MAPPING }}
       >
-        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity * (night ? NIGHT_SKY_SHARE : 1)]} />
+        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity * (night ? NIGHT_SKY_SHARE : DAY_SKY_SHARE)]} />
         <SunLight />
+        <Atmosphere />
         <SectionClipping />
         <ViewTracker onChange={setView} />
         <CameraRig />
