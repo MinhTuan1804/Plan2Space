@@ -378,4 +378,25 @@ public class GeometryControllerTests : IClassFixture<Plan2SpaceWebApplicationFac
         var g = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
         Assert.Equal(style, g.GetProperty("openings")[0].GetProperty("doorStyle").GetString());
     }
+
+    // A room's floor material: null follows the room type; otherwise one of the web's eight PBR materials.
+    [Theory]
+    [InlineData("marble", HttpStatusCode.OK)]
+    [InlineData(null, HttpStatusCode.OK)]
+    [InlineData("gold", HttpStatusCode.BadRequest)]
+    public async Task FloorMaterial_RoundTrips_AndIsChecked(string? material, HttpStatusCode expected)
+    {
+        var (client, project) = await AuthedProjectAsync($"floor-{Guid.NewGuid():N}@plan2space.dev");
+        var res = await client.PutAsJsonAsync($"/api/projects/{project.Id}/geometry", new
+        {
+            baseVersion = 0, openings = Array.Empty<object>(),
+            walls = new[] { new { points = new[] { new { x = 0.0, y = 0.0 }, new { x = 4.0, y = 0.0 } }, thicknessMeters = 0.2, heightMeters = 3.6 } },
+            rooms = new[] { new { label = "Phòng khách", points = Square(0, 0, 3), floorMaterial = material } },
+        });
+        Assert.Equal(expected, res.StatusCode);
+        if (expected != HttpStatusCode.OK) return;
+        var g = await client.GetFromJsonAsync<JsonElement>($"/api/projects/{project.Id}/geometry");
+        var saved = g.GetProperty("rooms")[0].GetProperty("floorMaterial");
+        Assert.Equal(material, saved.ValueKind == JsonValueKind.Null ? null : saved.GetString());
+    }
 }

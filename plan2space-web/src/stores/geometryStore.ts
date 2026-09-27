@@ -47,6 +47,7 @@ export interface GeometryState {
   replaceFurnitureInRoom: (room: Point[], items: Omit<FurnitureItem, 'id'>[], level?: number) => void
   updateRoomLabel: (roomId: string, label: string) => void
   setRoomWallColor: (roomId: string, color: string | null) => void
+  setRoomFloorMaterial: (roomId: string, material: string | null) => void
   mergeLevels: (heights: [number, number], swap?: boolean) => Promise<string | null>
   scalePlan: (factor: number) => void
   snapshotPlan: () => PlanSnapshot
@@ -270,6 +271,11 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       return null
     },
 
+    setRoomFloorMaterial: (roomId, material) => {
+      set((state) => ({ rooms: state.rooms.map((r) => (r.id === roomId ? { ...r, floorMaterial: material } : r)) }))
+      markEdited()
+    },
+
     setRoomWallColor: (roomId, color) => {
       set((state) => ({ rooms: state.rooms.map((r) => (r.id !== roomId ? r
         : color ? { ...r, wallColor: color } : (({ wallColor, ...rest }) => rest)(r))) }))
@@ -335,7 +341,8 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
             const probe = interiorPoint(r.points)
             const before = previous.find((old) => pointInPolygon(probe, old.points))
             const label = before && roomTypeOf(before.label) ? before.label : r.label
-            return { id: newId(), points: r.points, label, version: 0, level, ...(before?.wallColor ? { wallColor: before.wallColor } : {}) }
+            return { id: newId(), points: r.points, label, version: 0, level, ...(before?.wallColor ? { wallColor: before.wallColor } : {}),
+              ...(before?.floorMaterial ? { floorMaterial: before.floorMaterial } : {}) }
           }))
         } catch {
           // The walls still save; the previous rooms stay until a later save derives them again.
@@ -345,7 +352,7 @@ export const useGeometryStore = create<GeometryState>((set, get) => {
       try {
         const result = await saveGeometry(projectId, version, {
           walls: walls.map((w) => ({ id: w.id, points: w.points, thicknessMeters: w.thicknessMeters, heightMeters: w.heightMeters, level: w.level ?? 0 })),
-          rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label, wallColor: r.wallColor ?? null, level: r.level ?? 0 })),
+          rooms: rooms.map((r) => ({ id: r.id, points: r.points, label: r.label, wallColor: r.wallColor ?? null, level: r.level ?? 0, floorMaterial: r.floorMaterial ?? null })),
           openings: openings.map((o) => ({ id: o.id, wallId: o.wallId, type: o.type, position: o.position, widthMeters: o.widthMeters, sillHeightMeters: o.sillHeightMeters, swingFlipped: !!o.swingFlipped, level: o.level ?? 0, doorStyle: o.doorStyle ?? null })),
           furniture: furniture.map((f) => ({ id: f.id, catalogId: f.catalogId, x: f.x, y: f.y, rotationDeg: f.rotationDeg, level: f.level ?? 0 })),
         })

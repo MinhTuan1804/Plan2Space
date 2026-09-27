@@ -11,7 +11,7 @@ public record PointDto(double X, double Y);
 // Id is optional: a client that sends a wall's/room's existing id keeps it stable across saves,
 // so openings (which reference WallId) stay attached. Omitted id = new element.
 public record WallInput(List<PointDto> Points, double ThicknessMeters, double HeightMeters, Guid? Id = null, int Level = 0);
-public record RoomInput(List<PointDto> Points, string Label, Guid? Id = null, string? WallColor = null, int Level = 0);
+public record RoomInput(List<PointDto> Points, string Label, Guid? Id = null, string? WallColor = null, int Level = 0, string? FloorMaterial = null);
 public record OpeningInput(Guid WallId, string Type, PointDto Position, double WidthMeters, double SillHeightMeters, bool SwingFlipped = false, int Level = 0, string? DoorStyle = null);
 // Absolute plan position; front faces local -y at rotation 0 (CCW degrees).
 public record FurnitureInput(string CatalogId, double X, double Y, double RotationDeg, Guid? Id = null, int Level = 0);
@@ -48,6 +48,9 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
     }
 
     private static readonly Regex ColorShape = new("^#[0-9a-fA-F]{6}$", RegexOptions.Compiled);
+    // The web's PBR floor catalogue (plan2space-web/src/lib/floorMaterials.ts).
+    private static readonly HashSet<string> FloorMaterials =
+        ["wood_oak", "wood_walnut", "wood_light", "marble", "ceramic_tile", "terrazzo", "pebbles", "concrete"];
     private readonly IPlan2SpaceDbContext _db;
     private static readonly GeometryFactory Factory = new();
 
@@ -104,6 +107,8 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
         {
             if (r.WallColor is not null && !ColorShape.IsMatch(r.WallColor))
                 throw new GeometryValidationException("A room's wallColor must be #RRGGBB");
+            if (r.FloorMaterial is not null && !FloorMaterials.Contains(r.FloorMaterial))
+                throw new GeometryValidationException($"Unknown floor material '{r.FloorMaterial}'");
             CheckLevel(r.Level);
             var polygon = BuildRoomPolygon(r.Points);
             var room = r.Id is Guid id && existingRooms.TryGetValue(id, out var found) && usedRoomIds.Add(id)
@@ -112,6 +117,7 @@ public class SaveGeometryHandler : IRequestHandler<SaveGeometryCommand, uint>
             room.Geometry = polygon;
             room.Label = r.Label;
             room.WallColor = r.WallColor;
+            room.FloorMaterial = r.FloorMaterial;
             room.Level = r.Level;
             room.Version = nextVersion;
             keptRooms.Add(room);

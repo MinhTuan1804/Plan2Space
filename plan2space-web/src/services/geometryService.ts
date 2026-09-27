@@ -20,6 +20,7 @@ export interface Room {
   label: string
   version: number
   wallColor?: string          // #RRGGBB paint of the wall faces inside this room
+  floorMaterial?: string | null   // a PBR floor id (lib/floorMaterials); none = by room type
   level?: number
 }
 
@@ -70,7 +71,7 @@ export async function saveGeometry(
   baseVersion: number,
   payload: {
     walls: { id?: string; points: Point[]; thicknessMeters: number; heightMeters: number; level?: number }[]
-    rooms: { id?: string; points: Point[]; label: string; wallColor?: string | null; level?: number }[]
+    rooms: { id?: string; points: Point[]; label: string; wallColor?: string | null; level?: number; floorMaterial?: string | null }[]
     openings: { id?: string; wallId: string; type: string; position: Point; widthMeters: number; sillHeightMeters: number; swingFlipped?: boolean; level?: number; doorStyle?: 'standard' | 'garage' | null }[]
     furniture: { id?: string; catalogId: string; x: number; y: number; rotationDeg: number; level?: number }[]
   }
