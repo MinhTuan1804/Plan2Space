@@ -1,4 +1,6 @@
-import React, { Component, ReactNode, Suspense, useMemo } from 'react'
+import React, { Component, ReactNode, Suspense, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { DOOR_SWING_S, doorOpenFraction, GARAGE_ROLL_S } from '../../../lib/interaction'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import { useEditorStore } from '../../../stores/editorStore'
@@ -17,18 +19,32 @@ class Fallback extends Component<{ children: ReactNode }, { failed: boolean }> {
   render() { return this.state.failed ? null : this.props.children }
 }
 
-function Door({ door, width, thickness }: { door: CatalogDoor; width: number; thickness: number }) {
+// How open (0..1, eased) a door is, moving towards `open` over `durationS`; refs only, no re-render per frame.
+function useSwing(open: boolean, durationS: number, apply: (fraction: number) => void) {
+  const elapsed = useRef(open ? durationS : 0)
+  useFrame((_, delta) => {
+    const next = Math.min(durationS, Math.max(0, elapsed.current + (open ? delta : -delta)))
+    if (next === elapsed.current && elapsed.current !== 0 && elapsed.current !== durationS) return
+    elapsed.current = next
+    apply(doorOpenFraction(next, durationS))
+  })
+}
+
+// Closed by default; an open door swings its leaves to the side the plan's swing arc shows.
+function Door({ door, width, thickness, open }: { door: CatalogDoor; width: number; thickness: number; open: boolean }) {
   const frame = useGLTF(door.frame).scene
   const leaf = useGLTF(door.leaf).scene
   const layout = useMemo(() => doorLayout(width, thickness, door), [width, thickness, door])
   const frameClone = useMemo(() => frame.clone(true), [frame])
   const leafClones = useMemo(() => layout.leaves.map(() => leaf.clone(true)), [leaf, layout])
+  const hinges = useRef<(THREE.Group | null)[]>([])
+  useSwing(open, DOOR_SWING_S, (f) => layout.leaves.forEach((l, i) => { if (hinges.current[i]) hinges.current[i]!.rotation.y = l.rotationY * f }))
   // glTF is Y-up with the door's depth along z; +90° about X stands it in plan space (z up).
   return (
     <group rotation={[Math.PI / 2, 0, 0]}>
       <primitive object={frameClone} scale={layout.frameScale} />
       {layout.leaves.map((l, i) => (
-        <group key={i} position={l.position} rotation={[0, l.rotationY, 0]} scale={l.scale}>
+        <group key={i} ref={(g) => { hinges.current[i] = g }} position={l.position} rotation={[0, 0, 0]} scale={l.scale}>
           <primitive object={leafClones[i]} position={l.offset} />
         </group>
       ))}
@@ -37,12 +53,22 @@ function Door({ door, width, thickness }: { door: CatalogDoor; width: number; th
 }
 
 // The roller door stretched to the doorway; its box sits on the wall's right, like a door's swing.
-function GarageDoor({ door, width }: { door: CatalogGarageDoor; width: number }) {
+// Open, it rolls up: the curtain shrinks to 10 % of its height and rises into its box.
+function GarageDoor({ door, width, open }: { door: CatalogGarageDoor; width: number; open: boolean }) {
   const scene = useGLTF(door.file).scene
   const clone = useMemo(() => scene.clone(true), [scene])
+  const curtain = useRef<THREE.Group>(null)
+  const sy = GARAGE_DOOR_HEIGHT_M / door.heightM
+  useSwing(open, GARAGE_ROLL_S, (f) => {
+    if (!curtain.current) return
+    curtain.current.scale.y = sy * (1 - 0.9 * f)
+    curtain.current.position.y = 0.9 * GARAGE_DOOR_HEIGHT_M * f
+  })
   return (
     <group rotation={[Math.PI / 2, 0, 0]}>
-      <primitive object={clone} scale={[width / door.widthM, GARAGE_DOOR_HEIGHT_M / door.heightM, 1]} />
+      <group ref={curtain} scale={[width / door.widthM, sy, 1]}>
+        <primitive object={clone} />
+      </group>
     </group>
   )
 }
@@ -69,6 +95,7 @@ function WindowFrame({ width, thickness }: { width: number; thickness: number })
 }
 
 function OpeningModel({ opening, wall, rooms, catalog }: { opening: Opening; wall: Wall; rooms: Room[]; catalog: Catalog | null }) {
+  const open = useEditorStore((s) => s.openDoors.has(opening.id))
   const door = catalog?.door
   const garage = isGarageDoor(opening, wall, rooms) ? catalog?.garageDoor : null
   // The door model swings towards the wall's right; turning it half round swings it into the room on the left.
@@ -82,8 +109,8 @@ function OpeningModel({ opening, wall, rooms, catalog }: { opening: Opening; wal
           <Fallback>
             <Suspense fallback={null}>
               {garage
-                ? <GarageDoor door={garage} width={opening.widthMeters} />
-                : <Door door={door} width={opening.widthMeters} thickness={wall.thicknessMeters} />}
+                ? <GarageDoor door={garage} width={opening.widthMeters} open={open} />
+                : <Door door={door} width={opening.widthMeters} thickness={wall.thicknessMeters} open={open} />}
             </Suspense>
           </Fallback>
         )}

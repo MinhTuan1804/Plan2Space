@@ -51,6 +51,11 @@ interface EditorState {
   setPicked: (picked: Picked) => void
   quality: Quality
   setQuality: (quality: Quality) => void
+  // Doors opened and lights switched while looking round: viewing state, never saved.
+  openDoors: Set<string>
+  toggleDoor: (openingId: string) => void
+  lightsOverride: Map<string, boolean>
+  toggleLight: (roomId: string, isOn: boolean) => void
   // A saved calibration whose image scale could not be sent yet; retried from the editor.
   pendingUnderlayMpp: number | null
   setPendingUnderlayMpp: (mpp: number | null) => void
@@ -95,6 +100,14 @@ export const useEditorStore = create<EditorState>((set) => ({
   setPicked: (picked) => set({ picked }),
   quality: loadQuality(),
   setQuality: (quality) => { saveQuality(quality); set({ quality }) },
+  openDoors: new Set(),
+  toggleDoor: (id) => set((s) => {
+    const openDoors = new Set(s.openDoors)
+    if (!openDoors.delete(id)) openDoors.add(id)
+    return { openDoors }
+  }),
+  lightsOverride: new Map(),
+  toggleLight: (id, isOn) => set((s) => ({ lightsOverride: new Map(s.lightsOverride).set(id, !isOn) })),
   pendingUnderlayMpp: null,
   setPendingUnderlayMpp: (pendingUnderlayMpp) => set({ pendingUnderlayMpp }),
   underlayMeta: null,

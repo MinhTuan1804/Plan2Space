@@ -1,6 +1,7 @@
 import React, { Suspense, useEffect, useMemo } from 'react'
 import { LoadFallback } from './Atmosphere'
 import { PbrFloor } from './FloorMaterialMesh'
+import { RoomLights } from './RoomLights'
 import { floorMaterialOf, FloorMaterialId } from '../../../lib/floorMaterials'
 import * as THREE from 'three'
 import { useGeometryStore } from '../../../stores/geometryStore'
@@ -127,6 +128,7 @@ function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
       {showCeilings && floors.map((f, i) => <Ceiling key={i} points={f.points} height={height} />)}
       <OpeningModels walls={walls} openings={openings} rooms={rooms} />
       <FurnitureModels furniture={furniture} />
+      <RoomLights rooms={rooms.filter((r) => !holes.includes(r))} ceilingZ={height} />
     </>
   )
 }
