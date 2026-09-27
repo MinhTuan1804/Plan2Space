@@ -9,6 +9,7 @@ import { doorSwingSign, isGarageDoor } from '../../../lib/doorSwing'
 import { Catalog, CatalogDoor, CatalogGarageDoor, useCatalog } from '../../../services/catalogService'
 import { GARAGE_DOOR_HEIGHT_M, segmentAngleAt, WINDOW_HEIGHT_M } from './cutOpenings'
 import { doorLayout, windowParts } from './openingFixtures'
+import { turnedAround, withoutNormalMaps } from './mirror'
 
 const FRAME_COLOUR = '#f4f1ea'
 
@@ -37,8 +38,9 @@ function Door({ door, width, thickness, open }: { door: CatalogDoor; width: numb
   const frame = useGLTF(door.frame).scene
   const leaf = useGLTF(door.leaf).scene
   const layout = useMemo(() => doorLayout(width, thickness, door), [width, thickness, door])
-  const frameClone = useMemo(() => frame.clone(true), [frame])
-  const leafClones = useMemo(() => layout.leaves.map(() => leaf.clone(true)), [leaf, layout])
+  const frameClone = useMemo(() => withoutNormalMaps(frame.clone(true)), [frame])
+  // A mirrored leaf (negative x scale in the layout) is the leaf turned round, drawn at a positive scale.
+  const leafClones = useMemo(() => layout.leaves.map((l) => withoutNormalMaps(l.scale[0] < 0 ? turnedAround(leaf) : leaf.clone(true))), [leaf, layout])
   const hinges = useRef<(THREE.Group | null)[]>([])
   useSwing(open, DOOR_SWING_S, (f) => layout.leaves.forEach((l, i) => { if (hinges.current[i]) hinges.current[i]!.rotation.y = l.rotationY * f }))
   // glTF is Y-up with the door's depth along z; +90° about X stands it in plan space (z up).
@@ -46,8 +48,9 @@ function Door({ door, width, thickness, open }: { door: CatalogDoor; width: numb
     <group rotation={[Math.PI / 2, 0, 0]}>
       <primitive object={frameClone} scale={layout.frameScale} />
       {layout.leaves.map((l, i) => (
-        <group key={i} ref={(g) => { hinges.current[i] = g }} position={l.position} rotation={[0, 0, 0]} scale={l.scale}>
-          <primitive object={leafClones[i]} position={l.offset} />
+        <group key={i} ref={(g) => { hinges.current[i] = g }} position={l.position} rotation={[0, 0, 0]}
+               scale={[Math.abs(l.scale[0]), l.scale[1], l.scale[2]]}>
+          <primitive object={leafClones[i]} position={l.scale[0] < 0 ? [-l.offset[0], l.offset[1], l.offset[2]] : l.offset} />
         </group>
       ))}
     </group>
