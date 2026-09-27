@@ -6,12 +6,16 @@ import { useEditorStore } from '../../../stores/editorStore'
 import { HouseModel } from './HouseModel'
 import { SunLight } from './SunLight'
 import { SectionClipping, SectionPanel } from './SectionPanel'
+import { SunStudyPanel, useSun } from './SunStudyPanel'
+
+const NIGHT_SKY_SHARE = 0.25
 import { SKY_LIGHT, TONE_MAPPING } from './lighting'
 import { Eye, Footprints } from 'lucide-react'
 
 export function Scene() {
   const setWalking = useEditorStore((s) => s.setWalking)
   const wallCount = useGeometryStore((s) => s.walls.length)
+  const night = !useSun().up
   return (
     <div className="w-full h-full relative bg-[#09090b]">
       {/* 3D Viewport HUD overlay */}
@@ -32,6 +36,7 @@ export function Scene() {
       </div>
 
       {wallCount > 0 && <SectionPanel />}
+      {wallCount > 0 && <SunStudyPanel />}
 
       <div className="absolute bottom-4 right-4 z-10 pointer-events-none flex items-center gap-2 text-[11px] font-mono text-zinc-400 bg-zinc-950/80 px-2 py-1 rounded border border-zinc-800/80">
         <span>Rotate: Left Click</span>
@@ -46,7 +51,7 @@ export function Scene() {
         camera={{ position: [12, 12, 12], fov: 45 }}
         gl={{ antialias: true, alpha: true, toneMapping: TONE_MAPPING }}
       >
-        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity]} />
+        <hemisphereLight args={[SKY_LIGHT.sky, SKY_LIGHT.ground, SKY_LIGHT.intensity * (night ? NIGHT_SKY_SHARE : 1)]} />
         <SunLight />
         <SectionClipping />
 
