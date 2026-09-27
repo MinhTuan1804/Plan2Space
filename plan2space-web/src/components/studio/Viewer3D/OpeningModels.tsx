@@ -69,7 +69,7 @@ function OpeningModel({ opening, wall, rooms, catalog }: { opening: Opening; wal
   const swingsLeft = opening.type === 'Door' && doorSwingSign(opening, wall, rooms) === 1
   const angle = segmentAngleAt(wall, opening.position) + (swingsLeft ? Math.PI : 0)
   return (
-    <group position={[opening.position.x, opening.position.y, opening.sillHeightMeters]} rotation={[0, 0, angle]}>
+    <group userData={{ pick: { kind: 'opening', id: opening.id } }} position={[opening.position.x, opening.position.y, opening.sillHeightMeters]} rotation={[0, 0, angle]}>
       {opening.type === 'Window'
         ? <WindowFrame width={opening.widthMeters} thickness={wall.thicknessMeters} />
         : door && (

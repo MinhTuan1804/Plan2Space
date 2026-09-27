@@ -1,4 +1,4 @@
-import React, { Suspense, useState } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Center } from '@react-three/drei'
 import { useGeometryStore } from '../../../stores/geometryStore'
@@ -10,12 +10,16 @@ import { SunStudyPanel, useSun } from './SunStudyPanel'
 import { ViewMarker, ViewTracker } from './ViewTracker'
 import { CameraRig } from './CameraRig'
 import { ViewsPanel } from './ViewsPanel'
+import { InfoCard } from './InfoCard'
+import { MeasureTool } from './MeasureTool'
+import { findPick } from '../../../lib/measure'
+import { Vec3 } from '../../../services/viewSettingsService'
 import { MiniMap } from '../MiniMap'
 import { levelScene, levelsIn } from '../../../lib/levels'
 
 const NIGHT_SKY_SHARE = 0.25
 import { SKY_LIGHT, TONE_MAPPING } from './lighting'
-import { Eye, Footprints } from 'lucide-react'
+import { Eye, Footprints, Ruler } from 'lucide-react'
 
 export function Scene() {
   const setWalking = useEditorStore((s) => s.setWalking)
@@ -27,6 +31,16 @@ export function Scene() {
   const setFlyTo = useEditorStore((s) => s.setFlyTo)
   const plan = { walls: useGeometryStore((s) => s.walls), rooms: useGeometryStore((s) => s.rooms), openings: [], furniture: [] }
   const shown = levelScene(plan, level)
+  const tool3d = useEditorStore((s) => s.tool3d)
+  const setTool3d = useEditorStore((s) => s.setTool3d)
+  const setPicked = useEditorStore((s) => s.setPicked)
+  const [measure, setMeasure] = useState<Vec3[]>([])
+  useEffect(() => {
+    if (tool3d !== 'measure') { setMeasure([]); return }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMeasure([]) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [tool3d])
   return (
     <div className="w-full h-full relative bg-[#09090b]">
       {/* 3D Viewport HUD overlay */}
@@ -44,6 +58,15 @@ export function Scene() {
           <Footprints className="w-3.5 h-3.5" />
           <span>Walk</span>
         </button>
+        <button
+          onClick={() => setTool3d(tool3d === 'measure' ? 'select' : 'measure')}
+          disabled={wallCount === 0}
+          aria-pressed={tool3d === 'measure'}
+          className={`flex items-center gap-1 rounded px-2 py-0.5 ${tool3d === 'measure' ? 'bg-amber-500 text-black' : 'bg-zinc-800 text-zinc-300'}`}
+        >
+          <Ruler className="w-3.5 h-3.5" />
+          <span>Đo</span>
+        </button>
       </div>
 
       {wallCount > 0 && (
@@ -53,6 +76,7 @@ export function Scene() {
         </div>
       )}
       {wallCount > 0 && <SunStudyPanel />}
+      <InfoCard />
       {wallCount > 0 && (
         <MiniMap walls={shown.walls} rooms={shown.rooms} levels={levelsIn(plan.walls)} level={level} onLevel={setLevel}
                  marker={view && { x: view.x, y: view.y, headingDeg: view.headingDeg }}
@@ -71,6 +95,7 @@ export function Scene() {
       </div>
 
       <Canvas
+        onPointerMissed={() => setPicked(null)}
         shadows
         camera={{ position: [12, 12, 12], fov: 45 }}
         gl={{ antialias: true, alpha: true, toneMapping: TONE_MAPPING }}
@@ -103,9 +128,19 @@ export function Scene() {
         />
 
         {/* Group with orientation converting 2D plan XY to 3D XZ */}
-        <group rotation={[-Math.PI / 2, 0, 0]}>
+        <group rotation={[-Math.PI / 2, 0, 0]}
+               onClick={(e) => {
+                 e.stopPropagation()
+                 if (tool3d === 'measure') {
+                   const p = e.point.toArray() as Vec3
+                   setMeasure((m) => (m.length >= 2 ? [p] : [...m, p]))   // a third click starts again
+                 } else {
+                   setPicked(findPick(e.object))
+                 }
+               }}>
           <HouseModel showCeilings={false} />
         </group>
+        <MeasureTool points={measure} />
       </Canvas>
     </div>
   )

@@ -46,11 +46,11 @@ function useShape(points: Point[], holes: Point[][] = NO_HOLES) {
   return geometry
 }
 
-function Floor({ points, kind, holes }: { points: Point[]; kind: FloorKind; holes?: Point[][] }) {
+function Floor({ points, kind, holes, roomId }: { points: Point[]; kind: FloorKind; holes?: Point[][]; roomId?: string }) {
   const geometry = useShape(points, holes)
   const texture = floorTexture(kind)
   return (
-    <mesh geometry={geometry} position={[0, 0, 0.002]} receiveShadow>
+    <mesh geometry={geometry} position={[0, 0, 0.002]} receiveShadow userData={roomId ? { pick: { kind: 'room', id: roomId } } : {}}>
       <meshStandardMaterial map={texture} color={texture ? '#ffffff' : FLOOR_FALLBACK[kind]} roughness={0.8} />
     </mesh>
   )
@@ -100,8 +100,8 @@ function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
     const solid = rooms.filter((r) => !isShaft(r, holes))
     if (rooms.length > 0 && solid.length === 0) return []
     return floorPatches(solid, walls).flatMap((f, i) => solid[i]
-      ? floorPieces(solid[i], holes).map(([outer, ...inner]) => ({ kind: f.kind, points: outer, holes: inner }))
-      : [{ ...f, holes: [] as Point[][] }])
+      ? floorPieces(solid[i], holes).map(([outer, ...inner]) => ({ kind: f.kind, points: outer, holes: inner, roomId: solid[i].id }))
+      : [{ ...f, holes: [] as Point[][], roomId: undefined as string | undefined }])
   }, [rooms, walls, holes])
   const joints = useMemo(() => new Map(walls.map((w) => [w.id, wallEndExtensions(w, walls)])), [walls])
   const height = wallHeight(walls)
@@ -109,7 +109,7 @@ function LevelModel({ walls, rooms, openings, furniture, showCeilings, holes }:
   return (
     <>
       {walls.map((wall) => <WallMesh key={wall.id} wall={wall} openings={openings} extend={joints.get(wall.id)!} rooms={rooms} />)}
-      {floors.map((f, i) => <Floor key={i} points={f.points} kind={f.kind} holes={f.holes} />)}
+      {floors.map((f, i) => <Floor key={i} points={f.points} kind={f.kind} holes={f.holes} roomId={f.roomId} />)}
       {showCeilings && floors.map((f, i) => <Ceiling key={i} points={f.points} height={height} />)}
       <OpeningModels walls={walls} openings={openings} rooms={rooms} />
       <FurnitureModels furniture={furniture} />

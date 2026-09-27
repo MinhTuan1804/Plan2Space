@@ -33,7 +33,7 @@ export function FurnitureModels({ furniture }: { furniture: FurnitureItem[] }) {
         const entry = catalog.byId[f.catalogId]
         if (!entry) return null
         return (
-          <group key={f.id} position={[f.x, f.y, entry.elevationM]} rotation={[0, 0, (f.rotationDeg * Math.PI) / 180]}>
+          <group key={f.id} userData={{ pick: { kind: 'furniture', id: f.id } }} position={[f.x, f.y, entry.elevationM]} rotation={[0, 0, (f.rotationDeg * Math.PI) / 180]}>
             {entry.file ? <Suspense fallback={<Box entry={entry} />}><Model url={entry.file} /></Suspense> : <Box entry={entry} />}
           </group>
         )
